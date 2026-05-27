@@ -1,5 +1,14 @@
 import { ButtonInteraction, Events, Interaction, StringSelectMenuInteraction } from "discord.js";
-import { CommandManager, createBotClient, createTicket, env, handleVoiceState, PrefixCommandManager } from "@neon/core";
+import { 
+  CommandManager, 
+  createBotClient, 
+  createTicket, 
+  env, 
+  handleVoiceState, 
+  PrefixCommandManager,
+  applyRoleAction,
+  logger
+} from "@neon/core";
 import { grolesCommand } from "../../moderation-bot/src/commands/groles.js";
 import { roleHistoryCommand } from "../../moderation-bot/src/commands/role-history.js";
 import { voiceStatsCommand } from "../../moderation-bot/src/commands/voice-stats.js";
@@ -72,23 +81,72 @@ prefixCommands.register(createPrefixHelpCommand(prefixCommands));
 
 commands.bind(client);
 prefixCommands.bind(client);
-client.on(Events.InteractionCreate, async (interaction: Interaction) => {
-  if (interaction instanceof ButtonInteraction && interaction.customId.startsWith("groles:")) {
-    await handleGrolesButton(interaction);
-    return;
-  }
 
-  if (interaction instanceof ButtonInteraction && interaction.customId.startsWith("ticket:")) {
-    const type = interaction.customId.replace("ticket:", "") as any;
-    const ticket = await createTicket(interaction.guild!, interaction.member as any, type);
-    await interaction.reply({ content: `Ticket criado: <#${ticket.channelId}>`, ephemeral: true });
-    return;
+client.on(Events.InteractionCreate, async (interaction: Interaction) => {
+  if (interaction instanceof ButtonInteraction) {
+    const [action, userId, roleId] = interaction.customId.split(":");
+
+    // Handler para Gerenciamento de Cargos (Novo Builder)
+    if (action === "role_add" || action === "role_remove") {
+      if (userId !== interaction.user.id) {
+        return await interaction.reply({
+          content: "Você não pode gerenciar cargos de outro usuário!",
+          ephemeral: true,
+        });
+      }
+
+      await interaction.deferReply({ ephemeral: true });
+
+      const role = interaction.guild?.roles.cache.get(roleId);
+      const member = interaction.guild?.members.cache.get(userId);
+
+      if (!role || !member) {
+        return await interaction.editReply("Cargo ou membro não encontrado.");
+      }
+
+      try {
+        const operation = action === "role_add" ? "add" : "remove";
+        await applyRoleAction({
+          executor: member,
+          target: member,
+          roles: [role],
+          action: operation,
+          reason: `Cargo ${operation === "add" ? "adicionado" : "removido"} via painel profissional por ${interaction.user.tag}`
+        });
+
+        await interaction.editReply({
+          content: `Cargo **${role.name}** ${operation === "add" ? "adicionado" : "removido"} com sucesso!`,
+        });
+        
+        logger.info(`[Roles] ${interaction.user.tag} ${operation} cargo ${role.name} em ${interaction.guild?.name}`);
+      } catch (error: any) {
+        logger.error(`Erro ao processar cargo: ${error.message}`);
+        await interaction.editReply({
+          content: `Erro: ${error.message || "Tente novamente mais tarde."}`,
+        });
+      }
+      return;
+    }
+
+    // Handler legado/prefix
+    if (interaction.customId.startsWith("groles:")) {
+      await handleGrolesButton(interaction);
+      return;
+    }
+
+    if (interaction.customId.startsWith("ticket:")) {
+      const type = interaction.customId.replace("ticket:", "") as any;
+      const ticket = await createTicket(interaction.guild!, interaction.member as any, type);
+      await interaction.reply({ content: `Ticket criado: <#${ticket.channelId}>`, ephemeral: true });
+      return;
+    }
   }
 
   if (interaction instanceof StringSelectMenuInteraction && interaction.customId === "areas:select") {
     await interaction.reply({ content: `Area liberada: **${interaction.values[0]}**.`, ephemeral: true });
   }
 });
+
 client.on(Events.VoiceStateUpdate, handleVoiceState);
 bindSecurityHandlers(client);
 

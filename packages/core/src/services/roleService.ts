@@ -13,6 +13,16 @@ export async function assertRoleEditable(executor: GuildMember, target: GuildMem
   }
 }
 
+export async function getManageableRoles(member: GuildMember) {
+  // Retorna todos os cargos que o bot pode gerenciar e que estão abaixo do cargo do membro executor
+  const me = member.guild.members.me!;
+  return member.guild.roles.cache.filter(role => 
+    !role.managed && 
+    role.id !== member.guild.id &&
+    role.position < me.roles.highest.position &&
+    (member.guild.ownerId === member.id || role.position < member.roles.highest.position)
+  );
+}
 export async function applyRoleAction(input: {
   executor: GuildMember;
   target: GuildMember;

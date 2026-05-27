@@ -6,4 +6,7 @@ export * from "./builders/statsEmbed.js";
 export * from "./builders/notificationEmbed.js";
 export * from "./builders/errorEmbed.js";
 export * from "./builders/premiumEmbed.js";
+export * from "./builders/timeStatsEmbedBuilder.js";
+export * from "./builders/roleManagementEmbedBuilder.js";
 export * from "./templates.js";
+export { theme2mg, separators } from "./theme.js";

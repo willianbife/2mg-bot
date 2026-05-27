@@ -18,7 +18,7 @@ export interface EmbedTheme {
   footer: string;
 }
 
-export const modernTheme: EmbedTheme = {
+export const theme2mg: EmbedTheme = {
   colors: {
     primary: 0x1E90FF,      // Azul profissional (Dodger Blue)
     secondary: 0x4B0082,    // Roxo profundo (Indigo)
@@ -27,7 +27,7 @@ export const modernTheme: EmbedTheme = {
     warning: 0xF39C12,      // Laranja (Pumpkin)
     info: 0x3498DB,         // Azul claro (Peter River)
     neutral: 0x95A5A6,      // Cinza (Asbestos)
-    accent: 0xFF6B6B,       // Rosa/Coral (Tomato)
+    accent: 0xFFD700,       // Ouro (Gold)
   },
   separators: {
     main: '▸',              // Bullet principal
@@ -38,4 +38,7 @@ export const modernTheme: EmbedTheme = {
   footer: '2mg Community Suite',
 };
 
-export const getCurrentTheme = () => ({ theme: modernTheme });
+// Mantendo compatibilidade com código anterior se necessário
+export const modernTheme = theme2mg;
+export const getCurrentTheme = () => ({ theme: theme2mg });
+export const separators = theme2mg.separators;

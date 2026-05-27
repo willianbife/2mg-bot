@@ -20,6 +20,7 @@ export * from "./services/ticketService.js";
 export * from "./services/transcriptService.js";
 export * from "./services/userService.js";
 export * from "./services/voiceStatsService.js";
+export * from "./services/voiceStatsDataService.js";
 export * from "./utils/time.js";
 export * from "./utils/discordResolver.js";
 export * from "./websocket/internalBus.js";
