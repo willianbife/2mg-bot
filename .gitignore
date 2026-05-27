@@ -1,0 +1,9 @@
+node_modules
+.next
+dist
+.env
+*.log
+coverage
+tmp
+postgres_data
+redis_data

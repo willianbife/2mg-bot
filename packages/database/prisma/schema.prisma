@@ -1,0 +1,335 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BotType {
+  MODERATION
+  INFO
+  SECURITY
+  DASHBOARD
+}
+
+enum TicketStatus {
+  OPEN
+  CLAIMED
+  CLOSED
+  REOPENED
+}
+
+enum TicketType {
+  SUPPORT
+  ROLE_RETURN
+  ACCOUNT_TRANSFER
+  MIGRATION
+  JOIN_COMMUNITY
+  REPORT
+}
+
+enum PunishmentType {
+  WARN
+  MUTE
+  KICK
+  BAN
+  SOFTBAN
+  TEMPBAN
+  UNBAN
+}
+
+enum PermissionScope {
+  USER
+  ROLE
+  WHITELIST
+  HIERARCHY
+}
+
+enum AuditAction {
+  ROLE_ADD
+  ROLE_REMOVE
+  TICKET_CREATE
+  TICKET_CLOSE
+  PUNISHMENT_CREATE
+  BLACKLIST_CREATE
+  BLACKLIST_REMOVE
+  VOICE_UPDATE
+  PANEL_UPDATE
+  CALL_UPDATE
+  SECURITY_TRIGGER
+  LOGIN
+  CONFIG_UPDATE
+}
+
+enum LogCategory {
+  ENTRADA_SAIDA
+  CALLS
+  MENSAGENS
+  BOOST
+  BANS
+  URL
+  CARGOS
+}
+
+enum SecuritySeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model User {
+  id             String        @id @default(cuid())
+  discordId      String        @unique
+  username       String
+  avatarUrl      String?
+  isSystemBanned Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  tickets        Ticket[]
+  punishments    Punishment[]  @relation("PunishedUser")
+  roleHistory    RoleHistory[] @relation("RoleHistoryTarget")
+  voiceStats     VoiceStat[]
+  blacklists     Blacklist[]
+}
+
+model Guild {
+  id          String       @id @default(cuid())
+  discordId   String       @unique
+  name        String
+  iconUrl     String?
+  config      Json         @default("{}")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  tickets     Ticket[]
+  panels      Panel[]
+  permissions Permission[]
+  calls       Call[]
+  securityConfig SecurityConfig?
+  securityEvents SecurityEvent[]
+}
+
+model SecurityConfig {
+  id             String   @id @default(cuid())
+  guildId        String   @unique
+  guildDiscordId String   @unique
+  logs           Json     @default("{}")
+  antiRaid       Json     @default("{}")
+  antiNuke       Json     @default("{}")
+  antiUrl        Json     @default("{}")
+  ignoredRoles   Json     @default("[]")
+  ignoredChannels Json    @default("[]")
+  whitelistedUsers Json   @default("[]")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+}
+
+model SecurityEvent {
+  id          String           @id @default(cuid())
+  guildId     String
+  category    LogCategory
+  severity    SecuritySeverity @default(LOW)
+  actorId     String?
+  targetId    String?
+  channelId   String?
+  actionTaken String?
+  reason      String?
+  metadata    Json             @default("{}")
+  createdAt   DateTime         @default(now())
+  guild       Guild            @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, category, createdAt])
+  @@index([guildId, severity, createdAt])
+}
+
+model Ticket {
+  id          String          @id @default(cuid())
+  guildId     String
+  userId      String
+  channelId   String          @unique
+  type        TicketType
+  status      TicketStatus    @default(OPEN)
+  claimedBy   String?
+  rating      Int?
+  metadata    Json            @default("{}")
+  transcript  String?
+  closedAt    DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  guild       Guild           @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    TicketMessage[]
+}
+
+model TicketMessage {
+  id          String   @id @default(cuid())
+  ticketId    String
+  authorId    String
+  content     String
+  attachments Json     @default("[]")
+  createdAt   DateTime @default(now())
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+}
+
+model Punishment {
+  id          String         @id @default(cuid())
+  guildId     String
+  userId      String
+  executorId  String
+  type        PunishmentType
+  reason      String
+  proofUrls   Json           @default("[]")
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime       @default(now())
+  user        User           @relation("PunishedUser", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RoleHistory {
+  id          String   @id @default(cuid())
+  guildId     String
+  targetId    String
+  executorId  String
+  roleId      String
+  roleName    String
+  action      String
+  reason      String
+  createdAt   DateTime @default(now())
+  target      User     @relation("RoleHistoryTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, targetId])
+}
+
+model VoiceStat {
+  id             String   @id @default(cuid())
+  guildId        String
+  userId         String
+  roleId         String?
+  totalSeconds   Int      @default(0)
+  weeklySeconds  Int      @default(0)
+  monthlySeconds Int      @default(0)
+  mutedSeconds   Int      @default(0)
+  deafSeconds    Int      @default(0)
+  lastJoinedAt   DateTime?
+  weekKey        String
+  monthKey       String
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, userId, weekKey, monthKey])
+}
+
+model Blacklist {
+  id          String   @id @default(cuid())
+  guildId     String?
+  userId      String
+  executorId  String
+  global      Boolean  @default(false)
+  reason      String
+  proofUrls   Json     @default("[]")
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, userId])
+}
+
+model Permission {
+  id          String          @id @default(cuid())
+  guildId     String
+  subjectId   String
+  scope       PermissionScope
+  permission  String
+  allow       Boolean         @default(true)
+  expiresAt   DateTime?
+  createdAt   DateTime        @default(now())
+  guild       Guild           @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, subjectId, permission])
+}
+
+model Audit {
+  id          String      @id @default(cuid())
+  guildId     String?
+  actorId     String?
+  targetId    String?
+  bot         BotType
+  action      AuditAction
+  reason      String?
+  ipHash      String?
+  metadata    Json        @default("{}")
+  createdAt   DateTime    @default(now())
+
+  @@index([guildId, action, createdAt])
+}
+
+model Call {
+  id          String   @id @default(cuid())
+  guildId     String
+  channelId   String   @unique
+  ownerId     String?
+  name        String
+  userLimit   Int?
+  locked      Boolean  @default(false)
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  guild       Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+}
+
+model Panel {
+  id          String   @id @default(cuid())
+  guildId     String
+  key         String
+  title       String
+  description String
+  theme       Json     @default("{}")
+  components  Json     @default("[]")
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  guild       Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, key])
+}
+
+model Migration {
+  id          String   @id @default(cuid())
+  guildId     String
+  userId      String
+  oldServer   String
+  oldRole     String
+  proofUrls   Json     @default("[]")
+  status      String   @default("PENDING")
+  reviewedBy  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Transfer {
+  id          String   @id @default(cuid())
+  guildId     String
+  oldAccount  String
+  newAccount  String
+  requesterId String
+  confirmed   Boolean  @default(false)
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model GroupPanela {
+  id          String   @id @default(cuid())
+  guildId     String
+  name        String
+  ownerId     String
+  roleId      String?
+  memberLimit Int      @default(12)
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

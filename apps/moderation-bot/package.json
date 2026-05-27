@@ -1,0 +1,16 @@
+{
+  "name": "@neon/moderation-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@neon/core": "1.0.0",
+    "@neon/database": "1.0.0"
+  }
+}
