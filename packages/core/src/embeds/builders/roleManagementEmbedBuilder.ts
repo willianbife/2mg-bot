@@ -7,7 +7,7 @@ import {
 import { theme2mg, separators } from '../theme.js';
 import { z } from 'zod';
 
-export const RoleOptionSchema = z.object({
+const RoleOptionSchema = z.object({
   roleId: z.string(),
   roleName: z.string(),
   memberCount: z.number().min(0),
@@ -15,7 +15,7 @@ export const RoleOptionSchema = z.object({
   color: z.number().optional(),
 });
 
-export const RoleManagementDataSchema = z.object({
+const RoleManagementDataSchema = z.object({
   userId: z.string(),
   guildId: z.string(),
   guildName: z.string(),
@@ -44,7 +44,7 @@ export async function roleManagementEmbedBuilder(
 
   // 2. Criar embed principal
   const embed = new EmbedBuilder()
-    .setColor(theme2mg.colors.primary)
+    .setColor(theme2mg.primary)
     .setTitle(validData.title)
     .setDescription(
       `${separators.main} ${validData.subtitle}\n\n` +
@@ -52,14 +52,11 @@ export async function roleManagementEmbedBuilder(
       `Modo: ${validData.mode === 'cargos' ? 'Cargos Gerenciáveis' : 'Permissões'}`
     );
 
-  // 3. Adicionar campos para cada cargo (limitado a 5 para não quebrar rows)
-  const maxRoles = options?.maxRolesPerPage ?? 5;
-  const rolesToShow = validData.roles.slice(0, maxRoles);
-
-  rolesToShow.forEach((role, index) => {
+  // 3. Adicionar campos para cada cargo
+  validData.roles.forEach((role, index) => {
     const permissionsText =
       role.permissions.length > 0
-        ? role.permissions.slice(0, 3).join(', ') + (role.permissions.length > 3 ? '...' : '')
+        ? role.permissions.join(', ')
         : 'Nenhuma permissão especial';
 
     embed.addFields({
@@ -70,8 +67,8 @@ export async function roleManagementEmbedBuilder(
   });
 
   // 4. Adicionar instrução
-  const instructionText = rolesToShow.length > 0
-    ? `${rolesToShow.length} cargos listados - Use os botões abaixo`
+  const instructionText = validData.roles.length > 0
+    ? `1/${validData.roles.length} - ${validData.serverName}:roles add usuario/id cargo/id`
     : `${validData.serverName} - Nenhum cargo disponível`;
 
   embed
@@ -86,8 +83,9 @@ export async function roleManagementEmbedBuilder(
   // 5. Criar action rows com botões para cada cargo
   const components: ActionRowBuilder<ButtonBuilder>[] = [];
 
-  rolesToShow.forEach((role) => {
+  validData.roles.forEach((role) => {
     const userHasRole = validData.userRoles.includes(role.roleId);
+
     const actionRow = new ActionRowBuilder<ButtonBuilder>();
 
     // Botão Remover (aparece apenas se tem role)

@@ -3,7 +3,7 @@ import { theme2mg, separators } from '../theme.js';
 import { generateCanvasImage } from '../utils/canvasGenerator.js';
 import { z } from 'zod';
 
-export const TimeStatsDataSchema = z.object({
+const TimeStatsDataSchema = z.object({
   userId: z.string(),
   username: z.string(),
   globalName: z.string(),
@@ -51,7 +51,7 @@ export async function timeStatsEmbedBuilder(
 
   // 4. Criar embed com a imagem
   const embed = new EmbedBuilder()
-    .setColor(theme2mg.colors.primary)
+    .setColor(theme2mg.primary)
     .setImage(`attachment://stats-${validData.userId}.png`)
     .addFields(
       {

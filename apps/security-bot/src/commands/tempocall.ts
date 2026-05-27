@@ -4,14 +4,13 @@ import { timeStatsEmbedBuilder, getUserTimeStats, formatDuration, type TimeStats
 export const tempocallCommand = {
   data: new SlashCommandBuilder()
     .setName("tempocall")
-    .setDescription("Visualiza suas estatísticas de tempo em call.")
-    .addUserOption(option => option.setName("usuario").setDescription("Usuário para ver as estatísticas").setRequired(false)),
+    .setDescription("Visualiza suas estatísticas de tempo em call"),
 
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guild) return;
     await interaction.deferReply();
 
-    const targetUser = interaction.options.getUser("usuario") ?? interaction.user;
+    const targetUser = interaction.user;
     const stats = await getUserTimeStats(interaction.guild.id, targetUser.id);
 
     if (!stats) {

@@ -4,7 +4,7 @@ import { roleManagementEmbedBuilder, getManageableRoles, type RoleManagementData
 export const grolesCommand = {
   data: new SlashCommandBuilder()
     .setName("groles")
-    .setDescription("Gerencia seus cargos no servidor profissionalmente."),
+    .setDescription("Gerencia seus cargos no servidor"),
 
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guild || !(interaction.member instanceof GuildMember)) return;
@@ -28,7 +28,7 @@ export const grolesCommand = {
       userRoles: userRoleIds,
       mode: 'cargos',
       title: 'Gerenciamento de Cargos',
-      subtitle: `Servidor: ${interaction.guild.name}`,
+      subtitle: `Servidor de ${interaction.user.username}`,
       userCanManageRoles: true,
     };
 
