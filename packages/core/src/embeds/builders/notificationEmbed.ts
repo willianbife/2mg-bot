@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getCurrentTheme } from "../theme.js";
 
 export const NotificationEmbedSchema = z.object({
-  type: z.enum(['success', 'info', 'warning', 'pending']),
+  type: z.enum(['success', 'info', 'warning', 'pending', 'danger', 'neutral']),
   title: z.string(),
   message: z.string(),
   timestamp: z.date().optional()
@@ -20,6 +20,8 @@ export function notificationEmbed(options: NotificationEmbedOptions): EmbedBuild
     info: theme.colors.info,
     warning: theme.colors.warning,
     pending: theme.colors.neutral,
+    danger: theme.colors.danger,
+    neutral: theme.colors.neutral,
   };
 
   return new EmbedBuilder()
