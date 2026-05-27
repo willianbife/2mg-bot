@@ -1,13 +1,13 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import { getSecurityConfig, premiumEmbed, requirePermission, updateSecurityConfig } from "@neon/core";
+import { getSecurityConfig, notificationEmbed, requirePermission, updateSecurityConfig } from "@neon/core";
 
 export const urlCommand = {
   data: new SlashCommandBuilder()
     .setName("url")
-    .setDescription("Gerencia dominios bloqueados pelo anti URL.")
-    .addSubcommand((sub) => sub.setName("bloquear").setDescription("Bloqueia um dominio").addStringOption((option) => option.setName("dominio").setDescription("Dominio").setRequired(true)))
-    .addSubcommand((sub) => sub.setName("desbloquear").setDescription("Remove um dominio bloqueado").addStringOption((option) => option.setName("dominio").setDescription("Dominio").setRequired(true)))
-    .addSubcommand((sub) => sub.setName("lista").setDescription("Lista dominios bloqueados e permitidos.")),
+    .setDescription("Gerencia domínios bloqueados pelo anti-URL profissional.")
+    .addSubcommand((sub) => sub.setName("bloquear").setDescription("Bloqueia um domínio").addStringOption((option) => option.setName("dominio").setDescription("Domínio").setRequired(true)))
+    .addSubcommand((sub) => sub.setName("desbloquear").setDescription("Remove um domínio bloqueado").addStringOption((option) => option.setName("dominio").setDescription("Domínio").setRequired(true)))
+    .addSubcommand((sub) => sub.setName("lista").setDescription("Lista domínios bloqueados e permitidos.")),
 
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guild || !interaction.inCachedGuild()) return;
@@ -21,22 +21,39 @@ export const urlCommand = {
     if (sub === "bloquear" && domain) {
       const blockedDomains = [...new Set([...config.antiUrl.blockedDomains, domain])];
       await updateSecurityConfig(interaction.guild, { antiUrl: { ...config.antiUrl, blockedDomains } }, interaction.user.id);
-      await interaction.editReply({ embeds: [premiumEmbed({ title: "Dominio bloqueado", variant: "success", description: `Dominio: **${domain}**` })] });
+      await interaction.editReply({
+        embeds: [
+          notificationEmbed({
+            type: "success",
+            title: "Domínio Bloqueado",
+            message: `O domínio **${domain}** foi adicionado à lista de bloqueio.`
+          })
+        ]
+      });
       return;
     }
 
     if (sub === "desbloquear" && domain) {
       const blockedDomains = config.antiUrl.blockedDomains.filter((item) => item !== domain);
       await updateSecurityConfig(interaction.guild, { antiUrl: { ...config.antiUrl, blockedDomains } }, interaction.user.id);
-      await interaction.editReply({ embeds: [premiumEmbed({ title: "Dominio desbloqueado", variant: "warning", description: `Dominio: **${domain}**` })] });
+      await interaction.editReply({
+        embeds: [
+          notificationEmbed({
+            type: "warning",
+            title: "Domínio Desbloqueado",
+            message: `O domínio **${domain}** foi removido da lista de bloqueio.`
+          })
+        ]
+      });
       return;
     }
 
     await interaction.editReply({
       embeds: [
-        premiumEmbed({
-          title: "Lista anti URL",
-          description: `Ativo: **${config.antiUrl.enabled ? "sim" : "nao"}**\nBloqueados:\n${config.antiUrl.blockedDomains.map((item) => `- ${item}`).join("\n") || "`vazio`"}\n\nPermitidos:\n${config.antiUrl.allowedDomains.map((item) => `- ${item}`).join("\n") || "`vazio`"}`
+        notificationEmbed({
+          type: "info",
+          title: "Lista Anti-URL",
+          message: `Ativo: **${config.antiUrl.enabled ? "Sim" : "Não"}**\n\n**Bloqueados:**\n${config.antiUrl.blockedDomains.map((item) => `- ${item}`).join("\n") || "`Vazio`"}\n\n**Permitidos:**\n${config.antiUrl.allowedDomains.map((item) => `- ${item}`).join("\n") || "`Vazio`"}`
         })
       ]
     });

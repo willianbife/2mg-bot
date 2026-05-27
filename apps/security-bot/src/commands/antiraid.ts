@@ -1,17 +1,17 @@
 import { ChannelType, ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import { getSecurityConfig, premiumEmbed, requirePermission, updateSecurityConfig } from "@neon/core";
+import { getSecurityConfig, notificationEmbed, requirePermission, updateSecurityConfig } from "@neon/core";
 
 export const antiraidCommand = {
   data: new SlashCommandBuilder()
     .setName("antiraid")
-    .setDescription("Configura o anti-raid do servidor.")
+    .setDescription("Configura o anti-raid profissional do servidor.")
     .addSubcommand((sub) =>
       sub
         .setName("configurar")
-        .setDescription("Atualiza limites e acoes do anti-raid.")
+        .setDescription("Atualiza limites e ações do anti-raid.")
         .addIntegerOption((option) => option.setName("limite_entradas").setDescription("Entradas permitidas na janela").setMinValue(2).setMaxValue(100))
-        .addIntegerOption((option) => option.setName("janela_segundos").setDescription("Janela de deteccao").setMinValue(10).setMaxValue(600))
-        .addIntegerOption((option) => option.setName("dias_conta_nova").setDescription("Conta com menos dias que isso e suspeita").setMinValue(1).setMaxValue(90))
+        .addIntegerOption((option) => option.setName("janela_segundos").setDescription("Janela de detecção").setMinValue(10).setMaxValue(600))
+        .addIntegerOption((option) => option.setName("dias_conta_nova").setDescription("Conta com menos dias que isso é suspeita").setMinValue(1).setMaxValue(90))
         .addRoleOption((option) => option.setName("cargo_quarentena").setDescription("Cargo aplicado em contas suspeitas"))
         .addChannelOption((option) => option.setName("canal_staff").setDescription("Canal para alertas").addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
         .addBooleanOption((option) => option.setName("lockdown").setDescription("Ativar lockdown em raid massiva"))
@@ -30,7 +30,15 @@ export const antiraidCommand = {
     if (sub === "ativar" || sub === "desativar") {
       const enabled = sub === "ativar";
       await updateSecurityConfig(interaction.guild, { antiRaid: { ...current.antiRaid, enabled } }, interaction.user.id);
-      await interaction.editReply({ embeds: [premiumEmbed({ title: `Anti-raid ${enabled ? "ativado" : "desativado"}`, variant: enabled ? "success" : "warning" })] });
+      await interaction.editReply({
+        embeds: [
+          notificationEmbed({
+            type: enabled ? "success" : "warning",
+            title: `Anti-raid ${enabled ? "Ativado" : "Desativado"}`,
+            message: `O sistema de anti-raid foi ${enabled ? "habilitado" : "desabilitado"} com êxito.`
+          })
+        ]
+      });
       return;
     }
 
@@ -45,21 +53,37 @@ export const antiraidCommand = {
         lockdownOnRaid: interaction.options.getBoolean("lockdown") ?? current.antiRaid.lockdownOnRaid
       };
       await updateSecurityConfig(interaction.guild, { antiRaid }, interaction.user.id);
-      await interaction.editReply({ embeds: [premiumEmbed({ title: "Anti-raid configurado", variant: "success", description: renderStatus(antiRaid) })] });
+      await interaction.editReply({
+        embeds: [
+          notificationEmbed({
+            type: "success",
+            title: "Configuração Atualizada",
+            message: renderStatus(antiRaid)
+          })
+        ]
+      });
       return;
     }
 
-    await interaction.editReply({ embeds: [premiumEmbed({ title: "Status do anti-raid", description: renderStatus(current.antiRaid) })] });
+    await interaction.editReply({
+      embeds: [
+        notificationEmbed({
+          type: "info",
+          title: "Status do Anti-raid",
+          message: renderStatus(current.antiRaid)
+        })
+      ]
+    });
   }
 };
 
 function renderStatus(antiRaid: Awaited<ReturnType<typeof getSecurityConfig>>["antiRaid"]) {
   return [
-    `Ativo: **${antiRaid.enabled ? "sim" : "nao"}**`,
+    `Ativo: **${antiRaid.enabled ? "Sim" : "Não"}**`,
     `Limite: **${antiRaid.joinLimit} entradas / ${antiRaid.joinWindowSeconds}s**`,
     `Conta nova: **${antiRaid.newAccountDays} dias**`,
-    `Quarentena: ${antiRaid.quarantineRoleId ? `<@&${antiRaid.quarantineRoleId}>` : "`nao configurado`"}`,
-    `Alerta staff: ${antiRaid.staffChannelId ? `<#${antiRaid.staffChannelId}>` : "`nao configurado`"}`,
-    `Lockdown: **${antiRaid.lockdownOnRaid ? "sim" : "nao"}**`
+    `Quarentena: ${antiRaid.quarantineRoleId ? `<@&${antiRaid.quarantineRoleId}>` : "`Não configurado`"}`,
+    `Alerta staff: ${antiRaid.staffChannelId ? `<#${antiRaid.staffChannelId}>` : "`Não configurado`"}`,
+    `Lockdown: **${antiRaid.lockdownOnRaid ? "Sim" : "Não"}**`
   ].join("\n");
 }

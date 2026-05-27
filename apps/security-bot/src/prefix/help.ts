@@ -1,11 +1,11 @@
 import { Message } from "discord.js";
-import { env, premiumEmbed, PrefixCommand, PrefixCommandManager } from "@neon/core";
+import { env, notificationEmbed, PrefixCommand, PrefixCommandManager } from "@neon/core";
 
 export function createPrefixHelpCommand(manager: PrefixCommandManager): PrefixCommand {
   return {
     name: "help",
     aliases: ["ajuda", "comandos"],
-    description: "Lista comandos por prefixo.",
+    description: "Lista todos os comandos por prefixo.",
     usage: `${env.BOT_PREFIX}help`,
 
     async execute(message: Message) {
@@ -15,7 +15,13 @@ export function createPrefixHelpCommand(manager: PrefixCommandManager): PrefixCo
         .join("\n\n");
 
       await message.reply({
-        embeds: [premiumEmbed({ title: "Comandos por prefixo", description: commands || "Nenhum comando registrado." })]
+        embeds: [
+          notificationEmbed({
+            type: "info",
+            title: "Comandos por Prefixo",
+            message: commands || "Nenhum comando registrado."
+          })
+        ]
       });
     }
   };

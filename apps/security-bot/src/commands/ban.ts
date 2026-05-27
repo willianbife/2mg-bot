@@ -1,11 +1,11 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import { extractDiscordId, premiumEmbed, requirePermission } from "@neon/core";
+import { extractDiscordId, notificationEmbed, requirePermission } from "@neon/core";
 
 export const banCommand = {
   data: new SlashCommandBuilder()
     .setName("ban")
-    .setDescription("Banimento seguro por mencao, ID ou nome/id.")
-    .addStringOption((option) => option.setName("usuario").setDescription("Mencao, ID ou nome/id").setRequired(true))
+    .setDescription("Banimento seguro por menção, ID ou nome/id.")
+    .addStringOption((option) => option.setName("usuario").setDescription("Menção, ID ou nome/id").setRequired(true))
     .addStringOption((option) => option.setName("motivo").setDescription("Motivo").setRequired(true).setMinLength(8))
     .addIntegerOption((option) => option.setName("dias_limpar").setDescription("Dias de mensagens para limpar").setMinValue(0).setMaxValue(7)),
 
@@ -20,13 +20,19 @@ export const banCommand = {
     const deleteMessageSeconds = (interaction.options.getInteger("dias_limpar") ?? 0) * 86400;
 
     if (!targetId) {
-      await interaction.editReply({ content: "Informe uma mencao, ID ou texto no formato nome/id." });
+      await interaction.editReply({ content: "Informe uma menção, ID ou texto no formato nome/id." });
       return;
     }
 
     await interaction.guild.members.ban(targetId, { reason, deleteMessageSeconds });
     await interaction.editReply({
-      embeds: [premiumEmbed({ title: "Usuario banido", variant: "danger", description: `Alvo: <@${targetId}> \`${targetId}\`\nMotivo: ${reason}` })]
+      embeds: [
+        notificationEmbed({
+          type: "success",
+          title: "Usuário Banido",
+          message: `O usuário <@${targetId}> (\`${targetId}\`) foi banido com sucesso.\n**Motivo:** ${reason}`
+        })
+      ]
     });
   }
 };

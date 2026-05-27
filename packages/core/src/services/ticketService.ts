@@ -7,7 +7,7 @@ import {
 } from "discord.js";
 import { prisma } from "@neon/database";
 import { CooldownGuard } from "../guards/cooldown.js";
-import { premiumEmbed } from "../embeds/theme.js";
+import { ticketEmbed } from "../embeds/index.js";
 import { upsertDiscordUser } from "./userService.js";
 
 const ticketCooldown = new CooldownGuard("tickets");
@@ -47,10 +47,17 @@ export async function createTicket(guild: Guild, member: GuildMember, type: Tick
 
   await (channel as TextChannel).send({
     embeds: [
-      premiumEmbed({
-        title: "Atendimento iniciado",
-        description: `Ticket **${type}** criado para ${member}. Um membro da staff pode assumir, fechar ou reabrir este atendimento.`
-      })
+      ticketEmbed({
+        status: "opened",
+        title: type,
+        ticketId: ticket.id,
+        userId: member.id,
+        timestamp: new Date(),
+        metadata: {
+          "Tipo": type,
+          "Status": "Aguardando Staff"
+        }
+      }).setDescription(`Atendimento iniciado profissionalmente. Um membro da equipe analisará sua solicitação em breve.`)
     ]
   });
 

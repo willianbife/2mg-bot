@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Neon Community Suite",
+  title: "2mg Community Suite",
   description: "Dashboard profissional para bots Discord premium."
 };
 

@@ -6,12 +6,12 @@ import {
   SlashCommandBuilder,
   StringSelectMenuBuilder
 } from "discord.js";
-import { premiumEmbed, requirePermission } from "@neon/core";
+import { panelEmbed, requirePermission } from "@neon/core";
 
 export const panelCommand = {
   data: new SlashCommandBuilder()
     .setName("panel")
-    .setDescription("Publica paineis informativos premium.")
+    .setDescription("Publica painéis informativos profissionais.")
     .addStringOption((option) =>
       option
         .setName("tipo")
@@ -20,40 +20,41 @@ export const panelCommand = {
         .addChoices(
           { name: "Boas-vindas", value: "welcome" },
           { name: "Links", value: "links" },
-          { name: "Areas", value: "areas" },
+          { name: "Áreas", value: "areas" },
           { name: "Suporte", value: "support" },
-          { name: "Migracao", value: "migration" }
+          { name: "Migração", value: "migration" }
         )
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guild || !interaction.inCachedGuild()) return;
     await requirePermission(interaction.member, "panels.manage");
-    const type = interaction.options.getString("tipo", true);
+    const type = interaction.options.getString("tipo", true) as any;
 
     const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId("ticket:SUPPORT").setLabel("Suporte").setStyle(ButtonStyle.Secondary).setEmoji("🎫"),
-      new ButtonBuilder().setCustomId("ticket:ROLE_RETURN").setLabel("Devolucao").setStyle(ButtonStyle.Secondary).setEmoji("💠"),
-      new ButtonBuilder().setCustomId("ticket:MIGRATION").setLabel("Migracao").setStyle(ButtonStyle.Secondary).setEmoji("🚀")
+      new ButtonBuilder().setCustomId("ticket:SUPPORT").setLabel("Suporte").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("ticket:ROLE_RETURN").setLabel("Devolução").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("ticket:MIGRATION").setLabel("Migração").setStyle(ButtonStyle.Secondary)
     );
 
     const areas = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId("areas:select")
-        .setPlaceholder("Selecione uma area")
+        .setPlaceholder("Selecione uma área")
         .addOptions(
-          { label: "Suporte", value: "suporte", emoji: "🎧" },
-          { label: "Migracao", value: "migracao", emoji: "🚀" },
-          { label: "Pastime", value: "pastime", emoji: "✨" },
-          { label: "Tellonym", value: "tellonym", emoji: "💬" }
+          { label: "Suporte", value: "suporte" },
+          { label: "Migração", value: "migracao" },
+          { label: "Passatempo", value: "pastime" },
+          { label: "Tellonym", value: "tellonym" }
         )
     );
 
     await interaction.reply({
       embeds: [
-        premiumEmbed({
-          title: `Painel ${type}`,
-          description: "Central premium da comunidade. Escolha uma opcao abaixo para iniciar o fluxo correto com logs, cooldown e auditoria."
+        panelEmbed({
+          type,
+          title: `Painel: ${type.charAt(0).toUpperCase() + type.slice(1)}`,
+          description: "Central profissional da comunidade. Escolha uma opção abaixo para iniciar o fluxo correspondente com rastreabilidade completa."
         })
       ],
       components: type === "areas" ? [areas] : [buttons]

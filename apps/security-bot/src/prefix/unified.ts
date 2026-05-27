@@ -17,13 +17,16 @@ import {
   getSecurityConfig,
   lockGuild,
   logCategories,
-  premiumEmbed,
+  panelEmbed,
+  notificationEmbed,
+  statsEmbed,
   PrefixCommand,
   requirePermission,
   sendSecurityLog,
   unlockGuild,
   updateSecurityConfig,
-  upsertDiscordUser
+  upsertDiscordUser,
+  getCurrentTheme
 } from "@neon/core";
 
 function usage(command: string) {
@@ -46,34 +49,40 @@ function readOption(args: string[], name: string) {
 export const prefixPanelCommand: PrefixCommand = {
   name: "panel",
   aliases: ["painel"],
-  description: "Publica paineis informativos.",
+  description: "Publica painéis informativos profissionais.",
   usage: usage("panel support"),
 
   async execute(message: Message, args: string[]) {
     if (!message.guild || !(message.member instanceof GuildMember)) return;
     await requirePermission(message.member, "panels.manage");
-    const type = args[0] ?? "support";
+    const type = (args[0] ?? "support") as any;
 
     const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder().setCustomId("ticket:SUPPORT").setLabel("Suporte").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("ticket:ROLE_RETURN").setLabel("Devolucao").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("ticket:MIGRATION").setLabel("Migracao").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("ticket:ROLE_RETURN").setLabel("Devolução").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("ticket:MIGRATION").setLabel("Migração").setStyle(ButtonStyle.Secondary)
     );
 
     const areas = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId("areas:select")
-        .setPlaceholder("Selecione uma area")
+        .setPlaceholder("Selecione uma área")
         .addOptions(
           { label: "Suporte", value: "suporte" },
-          { label: "Migracao", value: "migracao" },
-          { label: "Pastime", value: "pastime" },
+          { label: "Migração", value: "migracao" },
+          { label: "Passatempo", value: "pastime" },
           { label: "Tellonym", value: "tellonym" }
         )
     );
 
     await message.reply({
-      embeds: [premiumEmbed({ title: `Painel ${type}`, description: "Central premium da comunidade. Escolha uma opcao abaixo para iniciar o fluxo correto." })],
+      embeds: [
+        panelEmbed({
+          type: ["welcome", "links", "areas", "support", "migration"].includes(type) ? type : "support",
+          title: `Painel: ${type.charAt(0).toUpperCase() + type.slice(1)}`,
+          description: "Central profissional da comunidade. Escolha uma opção abaixo para iniciar o fluxo correspondente."
+        })
+      ],
       components: type === "areas" ? [areas] : [buttons]
     });
   }
@@ -82,13 +91,14 @@ export const prefixPanelCommand: PrefixCommand = {
 export const prefixRoleHistoryCommand: PrefixCommand = {
   name: "role-history",
   aliases: ["historico-cargos", "cargos-historico"],
-  description: "Consulta historico de cargos por prefixo.",
+  description: "Consulta histórico de cargos por prefixo.",
   usage: usage("role-history @usuario [pagina]"),
 
   async execute(message: Message, args: string[]) {
     if (!message.guild) return;
     const targetId = extractDiscordId(args[0] ?? "");
     const page = Math.max(Number(args[1] ?? 1), 1);
+    const { theme } = getCurrentTheme();
     if (!targetId) {
       await message.reply(`Uso correto: \`${this.usage}\``);
       return;
@@ -110,16 +120,25 @@ export const prefixRoleHistoryCommand: PrefixCommand = {
 
     const description =
       entries
-        .map((entry, index) => `**${index + 1}. ${entry.action.toUpperCase()}** ${entry.roleName}\nExecutor: <@${entry.executorId}> - <t:${Math.floor(entry.createdAt.getTime() / 1000)}:f>\nMotivo: ${entry.reason}`)
-        .join("\n\n") || "Sem registros nesta pagina.";
-    await message.reply({ embeds: [premiumEmbed({ title: `Historico de ${user.username}`, description })] });
+        .map((entry) => `${theme.separators.bullet} **${entry.action.toUpperCase()}:** ${entry.roleName}\n${theme.separators.sub} Executor: <@${entry.executorId}>\n${theme.separators.sub} Data: <t:${Math.floor(entry.createdAt.getTime() / 1000)}:f>\n${theme.separators.sub} Motivo: ${entry.reason}`)
+        .join("\n\n") || "Sem registros nesta página.";
+        
+    await message.reply({
+      embeds: [
+        statsEmbed({
+          type: "role_history",
+          userId: user.id,
+          data: { "Total": entries.length, "Página": page }
+        }).setDescription(`\n${description}`)
+      ]
+    });
   }
 };
 
 export const prefixVoiceStatsCommand: PrefixCommand = {
   name: "voice-stats",
   aliases: ["voicestats", "callstats"],
-  description: "Mostra estatisticas de call.",
+  description: "Mostra estatísticas de call.",
   usage: usage("voice-stats [@usuario]"),
 
   async execute(message: Message, args: string[]) {
@@ -131,7 +150,15 @@ export const prefixVoiceStatsCommand: PrefixCommand = {
     const stat = guild && dbUser ? await prisma.voiceStat.findFirst({ where: { guildId: guild.id, userId: dbUser.id }, orderBy: { updatedAt: "desc" } }) : null;
 
     if (!stat) {
-      await message.reply({ embeds: [premiumEmbed({ title: "Sem dados de call", description: "Ainda nao ha atividade registrada para este usuario." })] });
+      await message.reply({
+        embeds: [
+          notificationEmbed({
+            type: "warning",
+            title: "Sem Dados",
+            message: "Ainda não há atividade de voz registrada para este usuário."
+          })
+        ]
+      });
       return;
     }
 
@@ -151,7 +178,7 @@ export const prefixVoiceStatsCommand: PrefixCommand = {
 export const prefixBlacklistCommand: PrefixCommand = {
   name: "blacklist",
   aliases: ["bl"],
-  description: "Adiciona usuario a blacklist.",
+  description: "Adiciona usuário a blacklist.",
   usage: usage("blacklist add @usuario motivo"),
 
   async execute(message: Message, args: string[]) {
@@ -166,7 +193,15 @@ export const prefixBlacklistCommand: PrefixCommand = {
       return;
     }
     await createBlacklist({ guild: message.guild, executor: message.member, targetId, reason, global });
-    await message.reply({ embeds: [premiumEmbed({ title: "Blacklist registrada", variant: "danger", description: `Usuario: <@${targetId}>\nEscopo: **${global ? "global" : "local"}**\nMotivo: ${reason}` })] });
+    await message.reply({
+      embeds: [
+        notificationEmbed({
+          type: "success",
+          title: "Blacklist Registrada",
+          message: `O usuário <@${targetId}> foi bloqueado.\n**Escopo:** ${global ? "Global" : "Local"}\n**Motivo:** ${reason}`
+        })
+      ]
+    });
   }
 };
 
@@ -183,7 +218,15 @@ export const prefixLogsCommand: PrefixCommand = {
 
     if (sub === "status") {
       const config = await getSecurityConfig(message.guild);
-      await message.reply({ embeds: [premiumEmbed({ title: "Status dos logs", description: logCategories.map((item) => `**${item}:** ${config.logs.channels[item] ? `<#${config.logs.channels[item]}>` : "`nao configurado`"}`).join("\n") })] });
+      await message.reply({
+        embeds: [
+          notificationEmbed({
+            type: "info",
+            title: "Status dos Logs",
+            message: logCategories.map((item) => `**${item}:** ${config.logs.channels[item] ? `<#${config.logs.channels[item]}>` : "`Não configurado`"}`).join("\n")
+          })
+        ]
+      });
       return;
     }
 
@@ -195,12 +238,30 @@ export const prefixLogsCommand: PrefixCommand = {
       }
       const current = await getSecurityConfig(message.guild);
       await updateSecurityConfig(message.guild, { logs: { ...current.logs, channels: { ...current.logs.channels, [category]: channelId } } }, message.author.id);
-      await message.reply({ embeds: [premiumEmbed({ title: "Log configurado", variant: "success", description: `Categoria: **${category}**\nCanal: <#${channelId}>` })] });
+      await message.reply({
+        embeds: [
+          notificationEmbed({
+            type: "success",
+            title: "Log Configurado",
+            message: `Categoria: **${category}**\nCanal: <#${channelId}>`
+          })
+        ]
+      });
       return;
     }
 
     if (sub === "testar" && category && logCategories.includes(category)) {
-      await sendSecurityLog({ guild: message.guild, category, actorId: message.author.id, actionTaken: "teste prefixo", embed: premiumEmbed({ title: "Teste de log", variant: "success", description: `Categoria **${category}** funcionando via prefixo.` }) });
+      await sendSecurityLog({
+        guild: message.guild,
+        category,
+        actorId: message.author.id,
+        actionTaken: "teste prefixo",
+        embed: notificationEmbed({
+          type: "success",
+          title: "Teste de Log",
+          message: `A categoria **${category}** está operando corretamente via prefixo.`
+        })
+      });
       await message.reply(`Teste enviado para **${category}**.`);
       return;
     }
@@ -223,7 +284,15 @@ export const prefixAntiraidCommand: PrefixCommand = {
     if (sub === "ativar" || sub === "desativar") {
       const enabled = sub === "ativar";
       await updateSecurityConfig(message.guild, { antiRaid: { ...current.antiRaid, enabled } }, message.author.id);
-      await message.reply({ embeds: [premiumEmbed({ title: `Anti-raid ${enabled ? "ativado" : "desativado"}`, variant: enabled ? "success" : "warning" })] });
+      await message.reply({
+        embeds: [
+          notificationEmbed({
+            type: enabled ? "success" : "warning",
+            title: `Anti-raid ${enabled ? "Ativado" : "Desativado"}`,
+            message: `O sistema de anti-raid foi ${enabled ? "habilitado" : "desabilitado"} com sucesso.`
+          })
+        ]
+      });
       return;
     }
 
@@ -240,11 +309,27 @@ export const prefixAntiraidCommand: PrefixCommand = {
         lockdownOnRaid: parseBoolean(readOption(args, "lockdown")) ?? current.antiRaid.lockdownOnRaid
       };
       await updateSecurityConfig(message.guild, { antiRaid }, message.author.id);
-      await message.reply({ embeds: [premiumEmbed({ title: "Anti-raid configurado", variant: "success", description: `Limite: **${antiRaid.joinLimit}/${antiRaid.joinWindowSeconds}s**\nConta nova: **${antiRaid.newAccountDays} dias**\nLockdown: **${antiRaid.lockdownOnRaid ? "sim" : "nao"}**` })] });
+      await message.reply({
+        embeds: [
+          notificationEmbed({
+            type: "success",
+            title: "Anti-raid Configurado",
+            message: `Limite: **${antiRaid.joinLimit}/${antiRaid.joinWindowSeconds}s**\nConta nova: **${antiRaid.newAccountDays} dias**\nLockdown: **${antiRaid.lockdownOnRaid ? "Sim" : "Não"}**`
+          })
+        ]
+      });
       return;
     }
 
-    await message.reply({ embeds: [premiumEmbed({ title: "Status do anti-raid", description: `Ativo: **${current.antiRaid.enabled ? "sim" : "nao"}**\nLimite: **${current.antiRaid.joinLimit}/${current.antiRaid.joinWindowSeconds}s**\nConta nova: **${current.antiRaid.newAccountDays} dias**\nLockdown: **${current.antiRaid.lockdownOnRaid ? "sim" : "nao"}**` })] });
+    await message.reply({
+      embeds: [
+        notificationEmbed({
+          type: "info",
+          title: "Status do Anti-raid",
+          message: `Ativo: **${current.antiRaid.enabled ? "Sim" : "Não"}**\nLimite: **${current.antiRaid.joinLimit}/${current.antiRaid.joinWindowSeconds}s**\nConta nova: **${current.antiRaid.newAccountDays} dias**\nLockdown: **${current.antiRaid.lockdownOnRaid ? "Sim" : "Não"}**`
+        })
+      ]
+    });
   }
 };
 
@@ -259,8 +344,33 @@ function makeLockCommand(name: string, locked: boolean, panic = false): PrefixCo
       const reason = args.join(" ").trim() || (panic ? "Panic acionado" : locked ? "Lockdown manual" : "Unlockdown manual");
       if (locked) await lockGuild(message.guild, reason);
       else await unlockGuild(message.guild, reason);
-      await sendSecurityLog({ guild: message.guild, category: "url", severity: panic ? "CRITICAL" : "HIGH", actorId: message.author.id, actionTaken: locked ? "lockdown" : "unlockdown", reason, embed: premiumEmbed({ title: panic ? "Panic acionado" : locked ? "Lockdown ativado" : "Lockdown removido", variant: locked ? "danger" : "success", description: `Executor: ${message.author}\nMotivo: ${reason}` }) });
-      await message.reply({ embeds: [premiumEmbed({ title: locked ? "Servidor bloqueado" : "Servidor desbloqueado", variant: locked ? "danger" : "success", description: `Motivo: ${reason}` })] });
+      
+      const title = panic ? "Panic Acionado" : locked ? "Lockdown Ativado" : "Lockdown Removido";
+      const type = locked ? "danger" : "success";
+
+      await sendSecurityLog({
+        guild: message.guild,
+        category: "url",
+        severity: panic ? "CRITICAL" : "HIGH",
+        actorId: message.author.id,
+        actionTaken: locked ? "lockdown" : "unlockdown",
+        reason,
+        embed: notificationEmbed({
+          type,
+          title,
+          message: `Executor: ${message.author}\nMotivo: ${reason}`
+        })
+      });
+      
+      await message.reply({
+        embeds: [
+          notificationEmbed({
+            type,
+            title: locked ? "Servidor Bloqueado" : "Servidor Desbloqueado",
+            message: `**Motivo:** ${reason}`
+          })
+        ]
+      });
     }
   };
 }
@@ -284,16 +394,40 @@ export const prefixUrlCommand: PrefixCommand = {
     if (sub === "bloquear" && domain) {
       const blockedDomains = [...new Set([...config.antiUrl.blockedDomains, domain])];
       await updateSecurityConfig(message.guild, { antiUrl: { ...config.antiUrl, blockedDomains } }, message.author.id);
-      await message.reply({ embeds: [premiumEmbed({ title: "Dominio bloqueado", variant: "success", description: `Dominio: **${domain}**` })] });
+      await message.reply({
+        embeds: [
+          notificationEmbed({
+            type: "success",
+            title: "Domínio Bloqueado",
+            message: `O domínio **${domain}** foi adicionado à lista negra.`
+          })
+        ]
+      });
       return;
     }
     if (sub === "desbloquear" && domain) {
       const blockedDomains = config.antiUrl.blockedDomains.filter((item) => item !== domain);
       await updateSecurityConfig(message.guild, { antiUrl: { ...config.antiUrl, blockedDomains } }, message.author.id);
-      await message.reply({ embeds: [premiumEmbed({ title: "Dominio desbloqueado", variant: "warning", description: `Dominio: **${domain}**` })] });
+      await message.reply({
+        embeds: [
+          notificationEmbed({
+            type: "warning",
+            title: "Domínio Desbloqueado",
+            message: `O domínio **${domain}** foi removido da lista negra.`
+          })
+        ]
+      });
       return;
     }
-    await message.reply({ embeds: [premiumEmbed({ title: "Lista anti URL", description: `Bloqueados:\n${config.antiUrl.blockedDomains.map((item) => `- ${item}`).join("\n") || "`vazio`"}\n\nPermitidos:\n${config.antiUrl.allowedDomains.map((item) => `- ${item}`).join("\n") || "`vazio`"}` })] });
+    await message.reply({
+      embeds: [
+        notificationEmbed({
+          type: "info",
+          title: "Lista Anti-URL",
+          message: `**Bloqueados:**\n${config.antiUrl.blockedDomains.map((item) => `- ${item}`).join("\n") || "`Vazio`"}\n\n**Permitidos:**\n${config.antiUrl.allowedDomains.map((item) => `- ${item}`).join("\n") || "`Vazio`"}`
+        })
+      ]
+    });
   }
 };
 
@@ -312,14 +446,38 @@ export const prefixSecurityCommand: PrefixCommand = {
 
     if (sub === "whitelist" && targetId) {
       await updateSecurityConfig(message.guild, { whitelistedUsers: [...new Set([...config.whitelistedUsers, targetId])] }, message.author.id);
-      await message.reply({ embeds: [premiumEmbed({ title: "Whitelist atualizada", variant: "success", description: `<@${targetId}> foi adicionado a whitelist.` })] });
+      await message.reply({
+        embeds: [
+          notificationEmbed({
+            type: "success",
+            title: "Whitelist Atualizada",
+            message: `<@${targetId}> foi adicionado à whitelist de confiança.`
+          })
+        ]
+      });
       return;
     }
     if (sub === "unwhitelist" && targetId) {
       await updateSecurityConfig(message.guild, { whitelistedUsers: config.whitelistedUsers.filter((id) => id !== targetId) }, message.author.id);
-      await message.reply({ embeds: [premiumEmbed({ title: "Whitelist atualizada", variant: "warning", description: `<@${targetId}> foi removido da whitelist.` })] });
+      await message.reply({
+        embeds: [
+          notificationEmbed({
+            type: "warning",
+            title: "Whitelist Atualizada",
+            message: `<@${targetId}> foi removido da whitelist.`
+          })
+        ]
+      });
       return;
     }
-    await message.reply({ embeds: [premiumEmbed({ title: "Status de seguranca", description: `Anti-raid: **${config.antiRaid.enabled ? "ativo" : "inativo"}**\nAnti-nuke: **${config.antiNuke.enabled ? "ativo" : "inativo"}**\nAnti URL: **${config.antiUrl.enabled ? "ativo" : "inativo"}**\nLogs: **${config.logs.enabled ? "ativo" : "inativo"}**\nWhitelist: **${config.whitelistedUsers.length} usuario(s)**` })] });
+    await message.reply({
+      embeds: [
+        notificationEmbed({
+          type: "info",
+          title: "Status de Segurança",
+          message: `Anti-raid: **${config.antiRaid.enabled ? "Ativo" : "Inativo"}**\nAnti-nuke: **${config.antiNuke.enabled ? "Ativo" : "Inativo"}**\nAnti-URL: **${config.antiUrl.enabled ? "Ativo" : "Inativo"}**\nLogs: **${config.logs.enabled ? "Ativo" : "Inativo"}**\nWhitelist: **${config.whitelistedUsers.length} usuário(s)**`
+        })
+      ]
+    });
   }
 };

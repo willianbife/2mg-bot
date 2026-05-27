@@ -4,7 +4,7 @@ import { prisma } from "@neon/database";
 import { audit } from "./auditService.js";
 import { childLogger } from "../logger/logger.js";
 import { redis } from "../database/redis.js";
-import { premiumEmbed } from "../embeds/theme.js";
+import { notificationEmbed } from "../embeds/index.js";
 
 const log = childLogger("security-config");
 
@@ -268,5 +268,9 @@ export async function bumpWindowCounter(key: string, windowSeconds: number) {
 }
 
 export function statusEmbed(title: string, lines: string[]) {
-  return premiumEmbed({ title, description: lines.join("\n") });
+  return notificationEmbed({
+    type: "info",
+    title,
+    message: lines.join("\n")
+  });
 }

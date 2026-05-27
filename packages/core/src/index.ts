@@ -1,6 +1,6 @@
 export * from "./config/env.js";
 export * from "./database/redis.js";
-export * from "./embeds/theme.js";
+export * from "./embeds/index.js";
 export * from "./guards/antiSpam.js";
 export * from "./guards/cooldown.js";
 export * from "./logger/logger.js";

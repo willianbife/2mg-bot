@@ -1,10 +1,10 @@
 import { ChannelType, ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import { getSecurityConfig, logCategories, premiumEmbed, requirePermission, sendSecurityLog, updateSecurityConfig } from "@neon/core";
+import { getSecurityConfig, logCategories, notificationEmbed, requirePermission, sendSecurityLog, updateSecurityConfig } from "@neon/core";
 
 export const logsCommand = {
   data: new SlashCommandBuilder()
     .setName("logs")
-    .setDescription("Configura e testa os logs de seguranca.")
+    .setDescription("Configura e testa os logs de segurança profissionais.")
     .addSubcommand((sub) =>
       sub
         .setName("configurar")
@@ -12,7 +12,7 @@ export const logsCommand = {
         .addStringOption((option) => option.setName("categoria").setDescription("Categoria").setRequired(true).addChoices(...logCategories.map((category) => ({ name: category, value: category }))))
         .addChannelOption((option) => option.setName("canal").setDescription("Canal de log").addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement).setRequired(true))
     )
-    .addSubcommand((sub) => sub.setName("status").setDescription("Mostra a configuracao atual dos logs."))
+    .addSubcommand((sub) => sub.setName("status").setDescription("Mostra a configuração atual dos logs."))
     .addSubcommand((sub) =>
       sub
         .setName("testar")
@@ -31,14 +31,30 @@ export const logsCommand = {
       const channel = interaction.options.getChannel("canal", true);
       const current = await getSecurityConfig(interaction.guild);
       await updateSecurityConfig(interaction.guild, { logs: { ...current.logs, channels: { ...current.logs.channels, [category]: channel.id } } }, interaction.user.id);
-      await interaction.editReply({ embeds: [premiumEmbed({ title: "Log configurado", variant: "success", description: `Categoria: **${category}**\nCanal: <#${channel.id}>` })] });
+      await interaction.editReply({
+        embeds: [
+          notificationEmbed({
+            type: "success",
+            title: "Log Configurado",
+            message: `Categoria: **${category}**\nCanal: <#${channel.id}>`
+          })
+        ]
+      });
       return;
     }
 
     if (sub === "status") {
       const config = await getSecurityConfig(interaction.guild);
-      const lines = logCategories.map((category) => `**${category}:** ${config.logs.channels[category] ? `<#${config.logs.channels[category]}>` : "`nao configurado`"}`);
-      await interaction.editReply({ embeds: [premiumEmbed({ title: "Status dos logs", description: `Ativo: **${config.logs.enabled ? "sim" : "nao"}**\n${lines.join("\n")}` })] });
+      const lines = logCategories.map((category) => `**${category}:** ${config.logs.channels[category] ? `<#${config.logs.channels[category]}>` : "`Não configurado`"}`);
+      await interaction.editReply({
+        embeds: [
+          notificationEmbed({
+            type: "info",
+            title: "Status dos Logs",
+            message: `Ativo: **${config.logs.enabled ? "Sim" : "Não"}**\n${lines.join("\n")}`
+          })
+        ]
+      });
       return;
     }
 
@@ -48,8 +64,12 @@ export const logsCommand = {
       category,
       actorId: interaction.user.id,
       actionTaken: "teste",
-      embed: premiumEmbed({ title: "Teste de log", variant: "success", description: `Categoria **${category}** configurada corretamente por ${interaction.user}.` })
+      embed: notificationEmbed({
+        type: "success",
+        title: "Teste de Log",
+        message: `A categoria **${category}** está operando corretamente. Teste solicitado por ${interaction.user}.`
+      })
     });
-    await interaction.editReply({ content: `Teste enviado para **${category}**.` });
+    await interaction.editReply({ content: `Teste enviado com sucesso para **${category}**.` });
   }
 };

@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import { createBlacklist, extractDiscordId, premiumEmbed, requirePermission } from "@neon/core";
+import { createBlacklist, extractDiscordId, notificationEmbed, requirePermission } from "@neon/core";
 
 export const blacklistCommand = {
   data: new SlashCommandBuilder()
@@ -8,11 +8,11 @@ export const blacklistCommand = {
     .addSubcommand((sub) =>
       sub
         .setName("add")
-        .setDescription("Adicionar usuario a blacklist.")
-        .addStringOption((option) => option.setName("usuario").setDescription("Mencao, ID ou nome/id").setRequired(true))
+        .setDescription("Adicionar usuário a blacklist.")
+        .addStringOption((option) => option.setName("usuario").setDescription("Menção, ID ou nome/id").setRequired(true))
         .addStringOption((option) => option.setName("motivo").setDescription("Motivo").setRequired(true).setMinLength(8))
         .addBooleanOption((option) => option.setName("global").setDescription("Aplicar globalmente"))
-        .addStringOption((option) => option.setName("provas").setDescription("Links de provas separados por espaco"))
+        .addStringOption((option) => option.setName("provas").setDescription("Links de provas separados por espaço"))
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
@@ -25,13 +25,19 @@ export const blacklistCommand = {
     const proofUrls = interaction.options.getString("provas")?.split(/\s+/).filter(Boolean) ?? [];
 
     if (!targetId) {
-      await interaction.editReply({ content: "Informe uma mencao, ID ou texto no formato nome/id." });
+      await interaction.editReply({ content: "Informe uma menção, ID ou texto no formato nome/id." });
       return;
     }
 
     await createBlacklist({ guild: interaction.guild, executor: interaction.member, targetId, reason, global, proofUrls });
     await interaction.editReply({
-      embeds: [premiumEmbed({ title: "Blacklist registrada", variant: "danger", description: `Usuario: <@${targetId}>\nEscopo: **${global ? "global" : "local"}**\nMotivo: ${reason}` })]
+      embeds: [
+        notificationEmbed({
+          type: "success",
+          title: "Blacklist Registrada",
+          message: `O usuário <@${targetId}> foi adicionado à lista de bloqueio.\n**Escopo:** ${global ? "Global" : "Local"}\n**Motivo:** ${reason}`
+        })
+      ]
     });
   }
 };

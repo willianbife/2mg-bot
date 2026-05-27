@@ -5,16 +5,21 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        neon: {
-          pink: "#ff2bd6",
-          rose: "#ff3f8f",
-          cyan: "#34f5c5",
-          ink: "#07040a",
-          panel: "#110915"
+        brand: {
+          primary: "#1E90FF",
+          secondary: "#4B0082",
+          success: "#2ECC71",
+          danger: "#E74C3C",
+          warning: "#F39C12",
+          info: "#3498DB",
+          neutral: "#95A5A6",
+          accent: "#FF6B6B",
+          ink: "#0A0A0A",
+          panel: "#1A1A1A"
         }
       },
       boxShadow: {
-        neon: "0 0 40px rgba(255, 43, 214, 0.22)"
+        brand: "0 0 40px rgba(30, 144, 255, 0.15)"
       }
     }
   },

@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import { extractDiscordId, premiumEmbed, requirePermission } from "@neon/core";
+import { extractDiscordId, notificationEmbed, requirePermission } from "@neon/core";
 
 export const unbanCommand = {
   data: new SlashCommandBuilder()
@@ -24,7 +24,13 @@ export const unbanCommand = {
 
     await interaction.guild.members.unban(targetId, reason);
     await interaction.editReply({
-      embeds: [premiumEmbed({ title: "Usuario desbanido", variant: "success", description: `Alvo: <@${targetId}> \`${targetId}\`\nMotivo: ${reason}` })]
+      embeds: [
+        notificationEmbed({
+          type: "success",
+          title: "Usuário Desbanido",
+          message: `O banimento do usuário <@${targetId}> (\`${targetId}\`) foi removido.\n**Motivo:** ${reason}`
+        })
+      ]
     });
   }
 };

@@ -2,10 +2,8 @@ import {
   AuditLogEvent,
   ChannelType,
   Client,
-  EmbedBuilder,
   Events,
   Guild,
-  GuildAuditLogsEntry,
   GuildBan,
   GuildMember,
   Message,
@@ -15,6 +13,7 @@ import {
   VoiceState
 } from "discord.js";
 import {
+  auditEmbed,
   bumpWindowCounter,
   childLogger,
   detectMessageAbuse,
@@ -23,10 +22,11 @@ import {
   getSecurityConfig,
   isSecurityBypassed,
   lockGuild,
-  premiumEmbed,
+  notificationEmbed,
   punishNukeExecutor,
   sendSecurityLog,
-  truncate
+  truncate,
+  getCurrentTheme
 } from "@neon/core";
 
 const log = childLogger("security-handlers");
@@ -54,10 +54,6 @@ async function latestExecutor(guild: Guild, type: AuditLogEvent, targetId?: stri
   });
 }
 
-function baseEmbed(title: string, variant: "default" | "success" | "danger" | "warning" = "default", description?: string) {
-  return premiumEmbed({ title, variant, description });
-}
-
 async function sendStaffAlert(guild: Guild, content: string) {
   const config = await getSecurityConfig(guild);
   const channelId = config.antiRaid.staffChannelId ?? config.logs.channels["entrada-saida"] ?? config.logs.channels.url;
@@ -76,17 +72,17 @@ async function handleRaidJoin(member: GuildMember) {
   const raidDetected = joins.count >= config.antiRaid.joinLimit || reasons.length >= 2;
   if (!raidDetected) return;
 
-  let actionTaken = "log";
+  let actionTaken = "Log";
   if (config.antiRaid.quarantineRoleId) {
     await member.roles.add(config.antiRaid.quarantineRoleId, "Anti-raid: conta suspeita/entrada massiva").catch(() => null);
-    actionTaken = "quarentena";
+    actionTaken = "Quarentena";
   } else if (config.antiRaid.timeoutSeconds > 0) {
     await member.timeout(config.antiRaid.timeoutSeconds * 1000, "Anti-raid: conta suspeita/entrada massiva").catch(() => null);
-    actionTaken = "timeout";
+    actionTaken = "Timeout";
   }
   if (config.antiRaid.lockdownOnRaid && joins.count >= config.antiRaid.joinLimit) {
     await lockGuild(member.guild, "Anti-raid: entrada massiva detectada");
-    actionTaken += "+lockdown";
+    actionTaken += " + Lockdown";
   }
 
   await sendStaffAlert(member.guild, `Anti-raid acionado para ${member} (${member.id}). Ação: ${actionTaken}.`);
@@ -98,7 +94,13 @@ async function handleRaidJoin(member: GuildMember) {
     actionTaken,
     reason: reasons.join(", ") || "entrada massiva",
     metadata: { joinCount: joins.count, suspiciousReasons: reasons },
-    embed: baseEmbed("Anti-raid acionado", "danger", `Membro: ${member} \`${member.id}\`\nAção: **${actionTaken}**\nMotivos: ${reasons.join(", ") || "entrada massiva"}\nEntradas na janela: **${joins.count}**`)
+    embed: auditEmbed({
+      action: "antiraid_trigger",
+      moderator: "Sistema (Anti-Raid)",
+      target: `${member.user.tag} (${member.id})`,
+      reason: reasons.join(", ") || "Entrada massiva detectada",
+      timestamp: new Date()
+    }).addFields({ name: "Ação Aplicada", value: actionTaken, inline: true })
   });
 }
 
@@ -129,7 +131,11 @@ async function handleUrls(message: Message) {
       actorId: message.author.id,
       channelId: message.channel.id,
       metadata: { urls },
-      embed: baseEmbed("Link enviado", "default", `Autor: ${message.author} \`${message.author.id}\`\nCanal: ${message.channel}\nLinks: ${truncate(urls.join("\n"), 800)}`)
+      embed: notificationEmbed({
+        type: "info",
+        title: "Link Enviado",
+        message: `Autor: ${message.author} (\`${message.author.id}\`)\nCanal: ${message.channel}\nLinks: ${truncate(urls.join("\n"), 800)}`
+      })
     });
     return false;
   }
@@ -148,7 +154,16 @@ async function handleUrls(message: Message) {
     actionTaken: config.antiUrl.deleteMessage ? "mensagem apagada" : "log",
     reason: "dominio bloqueado/invite externo",
     metadata: { blocked },
-    embed: baseEmbed("URL bloqueada", "danger", `Autor: ${message.author} \`${message.author.id}\`\nCanal: ${message.channel}\nAção: **${config.antiUrl.deleteMessage ? "mensagem apagada" : "log"}**\nLinks: ${truncate(blocked.join("\n"), 800)}`)
+    embed: auditEmbed({
+      action: "warn",
+      moderator: "Sistema (Anti-URL)",
+      target: `${message.author.tag} (${message.author.id})`,
+      reason: "Domínio bloqueado ou convite externo",
+      timestamp: new Date()
+    }).addFields(
+      { name: "Ação", value: config.antiUrl.deleteMessage ? "Mensagem Apagada" : "Apenas Log", inline: true },
+      { name: "Links", value: truncate(blocked.join("\n"), 400) }
+    )
   });
   return true;
 }
@@ -176,7 +191,14 @@ async function handleSpam(message: Message) {
     actionTaken: "mensagem apagada + timeout",
     reason: abuse.reason ?? "flood/spam",
     metadata: { repeat: repeat.count, emojiCount, links },
-    embed: baseEmbed("Spam detectado", "warning", `Autor: ${message.author} \`${message.author.id}\`\nCanal: ${message.channel}\nMotivo: **${abuse.reason ?? "flood/spam"}**\nConteúdo: ${truncate(message.content)}`)
+    embed: auditEmbed({
+      action: "mute",
+      moderator: "Sistema (Anti-Spam)",
+      target: `${message.author.tag} (${message.author.id})`,
+      reason: abuse.reason ?? "Flood ou Spam detectado",
+      duration: "10 minutos",
+      timestamp: new Date()
+    }).addFields({ name: "Detalhes", value: `Emojis: ${emojiCount} | Links: ${links.length} | Repetições: ${repeat.count}` })
   });
 }
 
@@ -206,7 +228,13 @@ async function handleAntiNuke(guild: Guild, type: AuditLogEvent, action: string,
     actionTaken: `${config.antiNuke.removeAdminRoles ? "cargos administrativos removidos" : "alerta"}${config.antiNuke.lockdownOnTrigger ? " + lockdown" : ""}`,
     reason,
     metadata: { count: counter.count, action },
-    embed: baseEmbed("Anti-nuke acionado", "danger", `Executor: <@${executorId}> \`${executorId}\`\nAção suspeita: **${action}**\nMedida: **${config.antiNuke.removeAdminRoles ? "cargos administrativos removidos" : "alerta"}**`)
+    embed: auditEmbed({
+      action: "antiraid_trigger",
+      moderator: "Sistema (Anti-Nuke)",
+      target: `<@${executorId}> (\`${executorId}\`)`,
+      reason,
+      timestamp: new Date()
+    }).addFields({ name: "Medida", value: config.antiNuke.removeAdminRoles ? "Cargos administrativos removidos" : "Apenas Alerta", inline: true })
   });
   return entry;
 }
@@ -216,8 +244,15 @@ export function bindSecurityHandlers(client: Client) {
     try {
       const config = await getSecurityConfig(member.guild);
       const reasons = suspiciousMember(member, config.antiRaid.newAccountDays);
-      const embed = baseEmbed("Membro entrou", reasons.length ? "warning" : "success", `Usuário: ${member} \`${member.id}\`\nConta criada: <t:${Math.floor(member.user.createdTimestamp / 1000)}:F>\nTempo de conta: **${memberAgeDays(member)} dias**\nSuspeita: **${reasons.length ? reasons.join(", ") : "não"}**`);
+      const { theme } = getCurrentTheme();
+      
+      const embed = notificationEmbed({
+        type: reasons.length ? "warning" : "success",
+        title: "Membro Entrou",
+        message: `Usuário: ${member} (\`${member.id}\`)\nConta criada: <t:${Math.floor(member.user.createdTimestamp / 1000)}:F>\nTempo de conta: **${memberAgeDays(member)} dias**\nSuspeita: **${reasons.length ? reasons.join(", ") : "Não"}**`
+      });
       embed.setThumbnail(member.user.displayAvatarURL({ size: 256 }));
+      
       await sendSecurityLog({ guild: member.guild, category: "entrada-saida", severity: reasons.length ? "MEDIUM" : "LOW", targetId: member.id, metadata: { suspicious: reasons }, embed });
       await handleRaidJoin(member);
     } catch (error) {
@@ -231,7 +266,11 @@ export function bindSecurityHandlers(client: Client) {
       guild: member.guild,
       category: "entrada-saida",
       targetId: member.id,
-      embed: baseEmbed("Membro saiu", "warning", `Usuário: <@${member.id}> \`${member.id}\`\nConta criada: ${member.user?.createdTimestamp ? `<t:${Math.floor(member.user.createdTimestamp / 1000)}:F>` : "indisponível"}`)
+      embed: notificationEmbed({
+        type: "neutral",
+        title: "Membro Saiu",
+        message: `Usuário: <@${member.id}> (\`${member.id}\`)\nConta criada: ${member.user?.createdTimestamp ? `<t:${Math.floor(member.user.createdTimestamp / 1000)}:F>` : "indisponível"}`
+      })
     });
   });
 
@@ -251,7 +290,11 @@ export function bindSecurityHandlers(client: Client) {
       category: "mensagens",
       actorId: message.author?.id,
       channelId: message.channelId,
-      embed: baseEmbed("Mensagem apagada", "warning", `Autor: ${message.author ?? "desconhecido"}\nCanal: <#${message.channelId}>\nConteúdo: ${truncate(message.content)}`)
+      embed: notificationEmbed({
+        type: "warning",
+        title: "Mensagem Apagada",
+        message: `Autor: ${message.author ?? "desconhecido"}\nCanal: <#${message.channelId}>\nConteúdo: ${truncate(message.content)}`
+      })
     });
   });
 
@@ -262,93 +305,214 @@ export function bindSecurityHandlers(client: Client) {
       category: "mensagens",
       actorId: newMessage.author?.id,
       channelId: newMessage.channelId,
-      embed: baseEmbed("Mensagem editada", "default", `Autor: ${newMessage.author}\nCanal: <#${newMessage.channelId}>\nAntes: ${truncate(oldMessage.content)}\nDepois: ${truncate(newMessage.content)}`)
+      embed: notificationEmbed({
+        type: "info",
+        title: "Mensagem Editada",
+        message: `Autor: ${newMessage.author}\nCanal: <#${newMessage.channelId}>\n**Antes:** ${truncate(oldMessage.content, 400)}\n**Depois:** ${truncate(newMessage.content, 400)}`
+      })
     });
   });
 
   client.on(Events.VoiceStateUpdate, async (oldState: VoiceState, newState: VoiceState) => {
     const guild = newState.guild;
     const key = `${guild.id}:${newState.id}`;
-    let title = "Call atualizada";
-    let description = `Usuário: <@${newState.id}> \`${newState.id}\``;
+    let title = "Call Atualizada";
+    let description = `Usuário: <@${newState.id}> (\`${newState.id}\`)`;
+    let type: "info" | "success" | "warning" = "info";
+
     if (!oldState.channelId && newState.channelId) {
-      title = "Entrou em call";
+      title = "Entrou em Call";
+      type = "success";
       voiceSessions.set(key, Date.now());
-      description += `\nCall: <#${newState.channelId}>`;
+      description += `\nCanal: <#${newState.channelId}>`;
     } else if (oldState.channelId && !newState.channelId) {
-      title = "Saiu da call";
+      title = "Saiu da Call";
+      type = "warning";
       const startedAt = voiceSessions.get(key);
       voiceSessions.delete(key);
-      description += `\nCall: <#${oldState.channelId}>\nTempo em call: **${startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0}s**`;
+      description += `\nCanal: <#${oldState.channelId}>\nTempo em call: **${startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0}s**`;
     } else if (oldState.channelId !== newState.channelId) {
-      title = "Mudou de call";
-      description += `\nDe: <#${oldState.channelId}>\nPara: <#${newState.channelId}>`;
+      title = "Mudou de Call";
+      description += `\n**De:** <#${oldState.channelId}>\n**Para:** <#${newState.channelId}>`;
     } else if (oldState.selfMute !== newState.selfMute || oldState.serverMute !== newState.serverMute || oldState.selfDeaf !== newState.selfDeaf || oldState.serverDeaf !== newState.serverDeaf) {
-      title = "Mute/deafen alterado";
-      description += `\nMute: **${newState.selfMute || newState.serverMute ? "sim" : "não"}**\nDeafen: **${newState.selfDeaf || newState.serverDeaf ? "sim" : "não"}**`;
+      title = "Estado de Voz Alterado";
+      description += `\nMudo: **${newState.selfMute || newState.serverMute ? "Sim" : "Não"}**\nSurdo: **${newState.selfDeaf || newState.serverDeaf ? "Sim" : "Não"}**`;
     } else return;
-    await sendSecurityLog({ guild, category: "calls", targetId: newState.id, channelId: newState.channelId ?? oldState.channelId ?? undefined, embed: baseEmbed(title, "default", description) });
+
+    await sendSecurityLog({
+      guild,
+      category: "calls",
+      targetId: newState.id,
+      channelId: newState.channelId ?? oldState.channelId ?? undefined,
+      embed: notificationEmbed({ type, title, message: description })
+    });
   });
 
   client.on(Events.GuildBanAdd, async (ban: GuildBan) => {
     const entry = await handleAntiNuke(ban.guild, AuditLogEvent.MemberBanAdd, "banimentos", "bans", ban.user.id);
-    await sendSecurityLog({ guild: ban.guild, category: "bans", actorId: entry?.executorId ?? undefined, targetId: ban.user.id, reason: entry?.reason ?? undefined, embed: baseEmbed("Usuário banido", "danger", `Alvo: ${ban.user} \`${ban.user.id}\`\nExecutor: ${entry?.executor ?? "desconhecido"}\nMotivo: ${entry?.reason ?? "não informado"}`) });
+    await sendSecurityLog({
+      guild: ban.guild,
+      category: "bans",
+      actorId: entry?.executorId ?? undefined,
+      targetId: ban.user.id,
+      reason: entry?.reason ?? undefined,
+      embed: auditEmbed({
+        action: "ban",
+        moderator: entry?.executor?.tag ?? "Desconhecido",
+        target: `${ban.user.tag} (${ban.user.id})`,
+        reason: entry?.reason ?? "Não informado",
+        timestamp: new Date()
+      })
+    });
   });
 
   client.on(Events.GuildBanRemove, async (ban: GuildBan) => {
     const entry = await latestExecutor(ban.guild, AuditLogEvent.MemberBanRemove, ban.user.id);
-    await sendSecurityLog({ guild: ban.guild, category: "bans", actorId: entry?.executorId ?? undefined, targetId: ban.user.id, reason: entry?.reason ?? undefined, embed: baseEmbed("Usuário desbanido", "success", `Alvo: ${ban.user} \`${ban.user.id}\`\nExecutor: ${entry?.executor ?? "desconhecido"}`) });
+    await sendSecurityLog({
+      guild: ban.guild,
+      category: "bans",
+      actorId: entry?.executorId ?? undefined,
+      targetId: ban.user.id,
+      reason: entry?.reason ?? undefined,
+      embed: notificationEmbed({
+        type: "success",
+        title: "Banimento Removido",
+        message: `Alvo: ${ban.user} (\`${ban.user.id}\`)\nExecutor: ${entry?.executor ?? "Desconhecido"}`
+      })
+    });
   });
 
   client.on(Events.GuildUpdate, async (oldGuild, newGuild) => {
     if (oldGuild.premiumTier !== newGuild.premiumTier || oldGuild.premiumSubscriptionCount !== newGuild.premiumSubscriptionCount) {
-      await sendSecurityLog({ guild: newGuild, category: "boost", embed: baseEmbed("Boost atualizado", "success", `Nível: **${oldGuild.premiumTier} -> ${newGuild.premiumTier}**\nBoosts totais: **${newGuild.premiumSubscriptionCount ?? 0}**`) });
+      await sendSecurityLog({
+        guild: newGuild,
+        category: "boost",
+        embed: notificationEmbed({
+          type: "success",
+          title: "Boost de Servidor Atualizado",
+          message: `Nível: **${oldGuild.premiumTier} -> ${newGuild.premiumTier}**\nBoosts totais: **${newGuild.premiumSubscriptionCount ?? 0}**`
+        })
+      });
     }
   });
 
   client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
     if (oldMember.premiumSinceTimestamp !== newMember.premiumSinceTimestamp) {
-      await sendSecurityLog({ guild: newMember.guild, category: "boost", targetId: newMember.id, embed: baseEmbed(newMember.premiumSinceTimestamp ? "Boost recebido" : "Boost removido", newMember.premiumSinceTimestamp ? "success" : "warning", `Usuário: ${newMember} \`${newMember.id}\`\nBoosts totais: **${newMember.guild.premiumSubscriptionCount ?? 0}**`) });
+      await sendSecurityLog({
+        guild: newMember.guild,
+        category: "boost",
+        targetId: newMember.id,
+        embed: notificationEmbed({
+          type: newMember.premiumSinceTimestamp ? "success" : "warning",
+          title: newMember.premiumSinceTimestamp ? "Novo Boost Recebido" : "Boost Removido",
+          message: `Usuário: ${newMember} (\`${newMember.id}\`)\nBoosts totais: **${newMember.guild.premiumSubscriptionCount ?? 0}**`
+        })
+      });
     }
 
     const added = newMember.roles.cache.filter((role) => !oldMember.roles.cache.has(role.id));
     const removed = oldMember.roles.cache.filter((role) => !newMember.roles.cache.has(role.id));
     if (!added.size && !removed.size) return;
     const entry = await latestExecutor(newMember.guild, added.size ? AuditLogEvent.MemberRoleUpdate : AuditLogEvent.MemberRoleUpdate, newMember.id);
+    
     await sendSecurityLog({
       guild: newMember.guild,
       category: "cargos",
       actorId: entry?.executorId ?? undefined,
       targetId: newMember.id,
       reason: entry?.reason ?? undefined,
-      embed: baseEmbed("Cargo de membro alterado", "default", `Membro: ${newMember} \`${newMember.id}\`\nAdicionados: ${added.map((role) => role.toString()).join(", ") || "nenhum"}\nRemovidos: ${removed.map((role) => role.toString()).join(", ") || "nenhum"}\nExecutor: ${entry?.executor ?? "desconhecido"}`)
+      embed: auditEmbed({
+        action: added.size ? "role_grant" : "role_remove",
+        moderator: entry?.executor?.tag ?? "Desconhecido",
+        target: `${newMember.user.tag} (${newMember.id})`,
+        reason: entry?.reason ?? "Alteração via Discord",
+        timestamp: new Date()
+      }).addFields(
+        { name: "Adicionados", value: added.map((role) => role.toString()).join(", ") || "Nenhum", inline: true },
+        { name: "Removidos", value: removed.map((role) => role.toString()).join(", ") || "Nenhum", inline: true }
+      )
     });
   });
 
-  const roleLog = async (guild: Guild, role: Role, title: string, type: AuditLogEvent, variant: "default" | "danger" | "warning" = "default") => {
+  const roleLog = async (guild: Guild, role: Role, title: string, type: AuditLogEvent, action: any) => {
     const entry = await handleAntiNuke(guild, type, title.toLowerCase(), "cargos", role.id);
-    await sendSecurityLog({ guild, category: "cargos", actorId: entry?.executorId ?? undefined, targetId: role.id, reason: entry?.reason ?? undefined, embed: baseEmbed(title, variant, `Cargo: ${role} \`${role.id}\`\nNome: **${role.name}**\nExecutor: ${entry?.executor ?? "desconhecido"}`) });
+    await sendSecurityLog({
+      guild,
+      category: "cargos",
+      actorId: entry?.executorId ?? undefined,
+      targetId: role.id,
+      reason: entry?.reason ?? undefined,
+      embed: auditEmbed({
+        action,
+        moderator: entry?.executor?.tag ?? "Desconhecido",
+        target: `${role.name} (\`${role.id}\`)`,
+        reason: entry?.reason ?? "Ação administrativa",
+        timestamp: new Date()
+      }).setTitle(title)
+    });
   };
-  client.on(Events.GuildRoleCreate, (role) => roleLog(role.guild, role, "Cargo criado", AuditLogEvent.RoleCreate));
-  client.on(Events.GuildRoleDelete, (role) => roleLog(role.guild, role, "Cargo excluído", AuditLogEvent.RoleDelete, "danger"));
+  client.on(Events.GuildRoleCreate, (role) => roleLog(role.guild, role, "Cargo Criado", AuditLogEvent.RoleCreate, "role_grant"));
+  client.on(Events.GuildRoleDelete, (role) => roleLog(role.guild, role, "Cargo Excluído", AuditLogEvent.RoleDelete, "role_remove"));
   client.on(Events.GuildRoleUpdate, async (oldRole, newRole) => {
     const entry = await latestExecutor(newRole.guild, AuditLogEvent.RoleUpdate, newRole.id);
-    await sendSecurityLog({ guild: newRole.guild, category: "cargos", actorId: entry?.executorId ?? undefined, targetId: newRole.id, reason: entry?.reason ?? undefined, embed: baseEmbed("Cargo editado", "warning", `Cargo: ${newRole} \`${newRole.id}\`\nNome: **${oldRole.name} -> ${newRole.name}**\nCor: **${oldRole.hexColor} -> ${newRole.hexColor}**\nPermissões alteradas: **${oldRole.permissions.bitfield === newRole.permissions.bitfield ? "não" : "sim"}**\nExecutor: ${entry?.executor ?? "desconhecido"}`) });
+    await sendSecurityLog({
+      guild: newRole.guild,
+      category: "cargos",
+      actorId: entry?.executorId ?? undefined,
+      targetId: newRole.id,
+      reason: entry?.reason ?? undefined,
+      embed: notificationEmbed({
+        type: "info",
+        title: "Cargo Editado",
+        message: `Cargo: ${newRole} (\`${newRole.id}\`)\n**Nome:** ${oldRole.name} -> ${newRole.name}\n**Cor:** ${oldRole.hexColor} -> ${newRole.hexColor}\n**Permissões:** ${oldRole.permissions.bitfield === newRole.permissions.bitfield ? "Sem alteração" : "Alteradas"}\n**Executor:** ${entry?.executor ?? "Desconhecido"}`
+      })
+    });
   });
 
   client.on(Events.ChannelCreate, async (channel) => {
     if (!("guild" in channel) || !channel.guild) return;
     await handleAntiNuke(channel.guild, AuditLogEvent.ChannelCreate, "criação de canais", channel.type === ChannelType.GuildVoice ? "calls" : "cargos", channel.id);
-    if (channel.type === ChannelType.GuildVoice) await sendSecurityLog({ guild: channel.guild, category: "calls", channelId: channel.id, embed: baseEmbed("Call criada", "success", `Canal: ${channel} \`${channel.id}\``) });
+    if (channel.type === ChannelType.GuildVoice) {
+      await sendSecurityLog({
+        guild: channel.guild,
+        category: "calls",
+        channelId: channel.id,
+        embed: notificationEmbed({
+          type: "success",
+          title: "Canal de Voz Criado",
+          message: `Canal: ${channel} (\`${channel.id}\`)`
+        })
+      });
+    }
   });
   client.on(Events.ChannelDelete, async (channel) => {
     if (!("guild" in channel) || !channel.guild) return;
     await handleAntiNuke(channel.guild, AuditLogEvent.ChannelDelete, "exclusão de canais", channel.type === ChannelType.GuildVoice ? "calls" : "cargos", channel.id);
-    if (channel.type === ChannelType.GuildVoice) await sendSecurityLog({ guild: channel.guild, category: "calls", channelId: channel.id, embed: baseEmbed("Call excluída", "danger", `Canal: **${channel.name}** \`${channel.id}\``) });
+    if (channel.type === ChannelType.GuildVoice) {
+      await sendSecurityLog({
+        guild: channel.guild,
+        category: "calls",
+        channelId: channel.id,
+        embed: notificationEmbed({
+          type: "danger",
+          title: "Canal de Voz Excluído",
+          message: `Canal: **${channel.name}** (\`${channel.id}\`)`
+        })
+      });
+    }
   });
   client.on(Events.ChannelUpdate, async (oldChannel, newChannel) => {
     if (!("guild" in newChannel) || !newChannel.guild || newChannel.type !== ChannelType.GuildVoice || oldChannel.type !== ChannelType.GuildVoice) return;
     if (oldChannel.name === newChannel.name && oldChannel.userLimit === newChannel.userLimit) return;
-    await sendSecurityLog({ guild: newChannel.guild, category: "calls", channelId: newChannel.id, embed: baseEmbed("Call editada", "warning", `Canal: ${newChannel} \`${newChannel.id}\`\nNome: **${oldChannel.name} -> ${newChannel.name}**\nLimite: **${oldChannel.userLimit ?? 0} -> ${newChannel.userLimit ?? 0}**`) });
+    await sendSecurityLog({
+      guild: newChannel.guild,
+      category: "calls",
+      channelId: newChannel.id,
+      embed: notificationEmbed({
+        type: "info",
+        title: "Canal de Voz Editado",
+        message: `Canal: ${newChannel} (\`${newChannel.id}\`)\n**Nome:** ${oldChannel.name} -> ${newChannel.name}\n**Limite:** ${oldChannel.userLimit ?? 0} -> ${newChannel.userLimit ?? 0}`
+      })
+    });
   });
 }

@@ -1,38 +1,41 @@
-import { EmbedBuilder } from "discord.js";
-
-export const neonTheme = {
-  color: 0xff2bd6,
-  danger: 0xff385c,
-  success: 0x34f5c5,
-  warning: 0xffc857,
-  footer: "Neon Community Suite",
-  separator: "━━━━━━━━━━━━━━━━━━━━"
-};
-
-type PremiumEmbedOptions = {
-  title: string;
-  description?: string;
-  variant?: "default" | "success" | "danger" | "warning";
-  thumbnail?: string;
-};
-
-export function premiumEmbed(options: PremiumEmbedOptions) {
-  const color =
-    options.variant === "danger"
-      ? neonTheme.danger
-      : options.variant === "success"
-        ? neonTheme.success
-        : options.variant === "warning"
-          ? neonTheme.warning
-          : neonTheme.color;
-
-  const embed = new EmbedBuilder()
-    .setColor(color)
-    .setTitle(`✦ ${options.title}`)
-    .setDescription(options.description ? `${options.description}\n\n${neonTheme.separator}` : neonTheme.separator)
-    .setFooter({ text: neonTheme.footer })
-    .setTimestamp();
-
-  if (options.thumbnail) embed.setThumbnail(options.thumbnail);
-  return embed;
+export interface EmbedTheme {
+  colors: {
+    primary: number;
+    secondary: number;
+    success: number;
+    danger: number;
+    warning: number;
+    info: number;
+    neutral: number;
+    accent: number;
+  };
+  separators: {
+    main: string;
+    sub: string;
+    divider: string;
+    bullet: string;
+  };
+  footer: string;
 }
+
+export const modernTheme: EmbedTheme = {
+  colors: {
+    primary: 0x1E90FF,      // Azul profissional (Dodger Blue)
+    secondary: 0x4B0082,    // Roxo profundo (Indigo)
+    success: 0x2ECC71,      // Verde (Emerald)
+    danger: 0xE74C3C,       // Vermelho (Alizarin)
+    warning: 0xF39C12,      // Laranja (Pumpkin)
+    info: 0x3498DB,         // Azul claro (Peter River)
+    neutral: 0x95A5A6,      // Cinza (Asbestos)
+    accent: 0xFF6B6B,       // Rosa/Coral (Tomato)
+  },
+  separators: {
+    main: '▸',              // Bullet principal
+    sub: '├',               // Sub-indicador
+    divider: '─',           // Divisor horizontal
+    bullet: '▪',            // Ponto de lista
+  },
+  footer: '2mg Community Suite',
+};
+
+export const getCurrentTheme = () => ({ theme: modernTheme });
