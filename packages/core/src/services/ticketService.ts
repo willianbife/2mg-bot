@@ -64,6 +64,27 @@ export async function createTicket(guild: Guild, member: GuildMember, type: Tick
   return ticket;
 }
 
+export async function claimTicket(channelId: string, staffId: string) {
+  return prisma.ticket.update({
+    where: { channelId },
+    data: { status: "CLAIMED", claimedBy: staffId }
+  });
+}
+
+export async function addTicketMessage(channelId: string, authorId: string, content: string, attachments: any = []) {
+  const ticket = await prisma.ticket.findUnique({ where: { channelId } });
+  if (!ticket) return null;
+
+  return prisma.ticketMessage.create({
+    data: {
+      ticketId: ticket.id,
+      authorId,
+      content,
+      attachments
+    }
+  });
+}
+
 export async function closeTicket(channelId: string, reason: string) {
   return prisma.ticket.update({
     where: { channelId },

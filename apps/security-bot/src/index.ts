@@ -24,6 +24,7 @@ import { logsCommand } from "./commands/logs.js";
 import { securityCommand } from "./commands/security.js";
 import { unbanCommand } from "./commands/unban.js";
 import { urlCommand } from "./commands/url.js";
+import { tempocallCommand } from "./commands/tempocall.js";
 import { prefixBanCommand } from "./prefix/ban.js";
 import { createPrefixHelpCommand } from "./prefix/help.js";
 import { prefixUnbanCommand } from "./prefix/unban.js";
@@ -49,6 +50,7 @@ const commands = new CommandManager()
   .register(grolesCommand)
   .register(roleHistoryCommand)
   .register(voiceStatsCommand)
+  .register(tempocallCommand)
   .register(panelCommand)
   .register(ticketCommand)
   .register(blacklistCommand)

@@ -73,7 +73,12 @@ async function handleRaidJoin(member: GuildMember) {
   if (!raidDetected) return;
 
   let actionTaken = "Log";
-  if (config.antiRaid.quarantineRoleId) {
+  
+  // Lógica Anti-Fake Ativa
+  if (reasons.includes("conta nova") && config.antiRaid.severity === "CRITICAL") {
+    await member.kick("Anti-Fake: Conta muito recente detectada durante suspeita de Raid").catch(() => null);
+    actionTaken = "Expulso (Anti-Fake)";
+  } else if (config.antiRaid.quarantineRoleId) {
     await member.roles.add(config.antiRaid.quarantineRoleId, "Anti-raid: conta suspeita/entrada massiva").catch(() => null);
     actionTaken = "Quarentena";
   } else if (config.antiRaid.timeoutSeconds > 0) {

@@ -57,8 +57,12 @@ const antiUrlSchema = z.object({
   deleteMessage: z.boolean().default(true),
   timeoutSeconds: z.number().int().min(0).max(2419200).default(600),
   warn: z.boolean().default(true),
-  blockedDomains: z.array(z.string()).default(["discord-nitro", "steamcommunity.ru", "free-nitro", "bit.ly", "tinyurl.com"]),
+  blockedDomains: z.array(z.string()).default([
+    "discord-nitro", "steamcommunity.ru", "free-nitro", "bit.ly", "tinyurl.com",
+    "gift-nitro", "discord-gift", "dlscord", "discorcl", "cliscord"
+  ]),
   allowedDomains: z.array(z.string()).default(["discord.com", "discord.gg", "discordapp.com"]),
+  blockedWords: z.array(z.string()).default(["nitro", "gift", "free", "promocao", "ganhe"]),
   severity: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("MEDIUM")
 });
 

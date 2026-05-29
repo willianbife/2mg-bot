@@ -86,6 +86,10 @@ model User {
   username       String
   avatarUrl      String?
   isSystemBanned Boolean       @default(false)
+  balance        Float         @default(0)
+  bank           Float         @default(0)
+  level          Int           @default(1)
+  xp             Int           @default(0)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   tickets        Ticket[]
@@ -93,6 +97,7 @@ model User {
   roleHistory    RoleHistory[] @relation("RoleHistoryTarget")
   voiceStats     VoiceStat[]
   blacklists     Blacklist[]
+  transactions   Transaction[]
 }
 
 model Guild {
@@ -109,6 +114,7 @@ model Guild {
   calls       Call[]
   securityConfig SecurityConfig?
   securityEvents SecurityEvent[]
+  automationConfig AutomationConfig?
 }
 
 model SecurityConfig {
@@ -125,6 +131,35 @@ model SecurityConfig {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+}
+
+model AutomationConfig {
+  id               String   @id @default(cuid())
+  guildId          String   @unique
+  welcomeEnabled   Boolean  @default(false)
+  welcomeChannelId String?
+  welcomeMessage   String?  @db.Text
+  welcomeEmbed     Json?
+  autoRoleEnabled  Boolean  @default(false)
+  autoRoleIds      Json     @default("[]")
+  leaveEnabled     Boolean  @default(false)
+  leaveChannelId   String?
+  leaveMessage     String?  @db.Text
+  callGeneratorId  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  guild            Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Float
+  type        String   // "DEPOSIT", "WITHDRAW", "TRANSFER", "PAYMENT"
+  description String?
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model SecurityEvent {

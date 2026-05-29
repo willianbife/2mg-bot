@@ -29,6 +29,17 @@ export async function handleVoiceState(oldState: VoiceState, newState: VoiceStat
 
   if (oldState.channelId && !newState.channelId && stat.lastJoinedAt) {
     const delta = Math.max(Math.floor((Date.now() - stat.lastJoinedAt.getTime()) / 1000), 0);
+    
+    // Calcular recompensa (100 coins por cada 600 segundos/10 minutos)
+    const rewardInterval = 600;
+    const coinsPerInterval = 100;
+    const rewards = Math.floor(delta / rewardInterval) * coinsPerInterval;
+
+    if (rewards > 0) {
+      const { economyService } = await import("./economyService.js");
+      await economyService.addBalance(member.id, rewards, `Recompensa por tempo em call: ${Math.floor(delta / 60)} min`);
+    }
+
     await prisma.voiceStat.update({
       where: { id: stat.id },
       data: {
