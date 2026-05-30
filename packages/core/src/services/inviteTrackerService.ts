@@ -1,4 +1,4 @@
-import { Guild, Collection, Invite } from "discord.js";
+import { Guild, Collection } from "discord.js";
 import { childLogger } from "../logger/logger.js";
 
 const log = childLogger("invite-tracker");

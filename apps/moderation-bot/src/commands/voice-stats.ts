@@ -4,8 +4,8 @@ import { generateStatsCard, premiumEmbed } from "@neon/core";
 
 export const voiceStatsCommand = {
   data: new SlashCommandBuilder()
-    .setName("voice-stats")
-    .setDescription("Mostra estatisticas de call com card neon.")
+    .setName("tempo")
+    .setDescription("Mostra suas estatisticas de tempo em call.")
     .addUserOption((option) => option.setName("usuario").setDescription("Usuario").setRequired(false)),
 
   async execute(interaction: ChatInputCommandInteraction) {
@@ -32,7 +32,7 @@ export const voiceStatsCommand = {
       mutedSeconds: stat.mutedSeconds,
       badges: ["call", "meta", "premium"]
     });
-    const attachment = new AttachmentBuilder(buffer, { name: "voice-stats.png" });
+    const attachment = new AttachmentBuilder(buffer, { name: "tempo.png" });
     await interaction.editReply({ files: [attachment] });
   }
 };

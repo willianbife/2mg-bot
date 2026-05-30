@@ -1,11 +1,11 @@
 import { GuildMember, Message } from "discord.js";
-import { extractDiscordId, premiumEmbed, PrefixCommand, requirePermission } from "@neon/core";
+import { env, extractDiscordId, premiumEmbed, PrefixCommand, requirePermission } from "@neon/core";
 
 export const prefixBanCommand: PrefixCommand = {
   name: "ban",
   aliases: ["banir"],
   description: "Bane um usuario por ID ou mencao.",
-  usage: "2mg!ban @usuario motivo",
+  usage: `${env.BOT_PREFIX}ban @usuario motivo`,
 
   async execute(message: Message, args: string[]) {
     if (!message.guild || !(message.member instanceof GuildMember)) return;

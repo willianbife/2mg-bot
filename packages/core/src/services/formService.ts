@@ -1,8 +1,4 @@
 import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ModalSubmitInteraction, TextChannel, EmbedBuilder } from "discord.js";
-import { prisma } from "@neon/database";
-import { childLogger } from "../logger/logger.js";
-
-const log = childLogger("form-service");
 
 export interface FormField {
   label: string;

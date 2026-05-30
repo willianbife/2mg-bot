@@ -45,7 +45,7 @@ export const economyCommands = {
         await interaction.reply({
           content: `✅ Você coletou sua recompensa diária de **R$ ${amount.toFixed(2)}**!`
         });
-      } catch (error) {
+      } catch (_error) {
         await interaction.reply({ content: "Ocorreu um erro ao coletar seu daily.", ephemeral: true });
       }
     }

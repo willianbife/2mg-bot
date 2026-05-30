@@ -32,7 +32,7 @@ export async function generateCanvasImage(data: TimeStatsData): Promise<Buffer> 
     ctx.beginPath();
     ctx.arc(120, 120, 72, 0, Math.PI * 2, true);
     ctx.stroke();
-  } catch (e) {
+  } catch (_error) {
     ctx.fillStyle = "#1E90FF";
     ctx.beginPath();
     ctx.arc(120, 120, 70, 0, Math.PI * 2, true);

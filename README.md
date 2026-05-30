@@ -88,7 +88,7 @@ DISCORD_OAUTH_CLIENT_SECRET=
 DISCORD_OAUTH_REDIRECT_URI=http://localhost:3000/api/auth/callback
 JWT_SECRET=change-me-with-a-long-random-secret
 INTERNAL_WS_SECRET=change-me-too
-BOT_PREFIX=2mg!
+BOT_PREFIX=.
 ```
 
 ## Discord Developer Portal
@@ -99,7 +99,7 @@ BOT_PREFIX=2mg!
    - Use o token em `DISCORD_SECURITY_TOKEN`.
    - Os campos `DISCORD_MODERATION_*` e `DISCORD_INFO_*` ficaram opcionais apenas para compatibilidade com codigo legado.
 3. Ative os intents: Server Members, Message Content e Presence se necessario.
-   - Para comandos por prefixo como `2mg!ban`, `2mg!groles` e `2mg!ticket`, o bot unico precisa do **Message Content Intent** ativo.
+   - Para comandos por prefixo como `.ban`, `.groles` e `.ticket`, o bot unico precisa do **Message Content Intent** ativo.
 4. Configure OAuth2 com scopes `bot`, `applications.commands`, `identify` e `guilds`.
 5. Permissoes recomendadas: Manage Roles, Manage Channels, Ban Members, Kick Members, Moderate Members, View Audit Log, Send Messages, Embed Links, Attach Files, Read Message History.
 6. Convide o bot com o escopo `applications.commands`.
@@ -125,10 +125,10 @@ O seed cria a guild base, um painel de boas-vindas e permissoes iniciais.
 
 - `/groles add/remove` com multiplos cargos, motivo obrigatorio, bloqueio por hierarquia e auditoria.
 - `/groles` com uma unica interface: acao, usuario por mencao/ID/nome/id, cargo e motivo apenas para remover.
-- `2mg!groles add usuario/id cargo/id`
-- `2mg!groles remove usuario/id cargo/id motivo`
+- `.groles add usuario/id cargo/id`
+- `.groles remove usuario/id cargo/id motivo`
 - `/role-history` com paginacao.
-- `/voice-stats` com card gerado em Canvas/Sharp.
+- `/tempo` com card gerado em Canvas/Sharp.
 - Evento de voice state para tempo total, semanal, mensal, mutado e deafened.
 
 ### Informacoes/Tickets
@@ -151,10 +151,10 @@ O seed cria a guild base, um painel de boas-vindas e permissoes iniciais.
 - `/lockdown`, `/unlockdown` e `/panic` para bloquear ou liberar mensagens/calls em emergencia.
 - `/url bloquear`, `/url desbloquear` e `/url lista` para gerenciar dominios do anti URL.
 - `/security status`, `/security whitelist` e `/security unwhitelist`.
-- `2mg!ban @usuario motivo` para banimento por prefixo.
-- `2mg!ban 123456789012345678 motivo` para banimento por ID.
-- `2mg!unban 123456789012345678 motivo` para desbanimento por prefixo.
-- `2mg!help` para listar comandos por prefixo.
+- `.ban @usuario motivo` para banimento por prefixo.
+- `.ban 123456789012345678 motivo` para banimento por ID.
+- `.unban 123456789012345678 motivo` para desbanimento por prefixo.
+- `.help` para listar comandos por prefixo.
 - Logs automaticos em embed para entrada/saida, calls, mensagens, boost, bans, URL e cargos.
 - Anti-spam, flood, mass mention, excesso de emojis e links em massa via Redis.
 - Anti-raid com deteccao de entrada massiva, conta nova e conta sem avatar.

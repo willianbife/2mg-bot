@@ -1,13 +1,14 @@
 import {
-  ActionRowBuilder,
   ButtonBuilder,
   ButtonInteraction,
   ButtonStyle,
   EmbedBuilder,
   GuildMember,
+  MessageFlags,
   Message,
   Role
 } from "discord.js";
+import type { APIMessageTopLevelComponent } from "discord-api-types/v10";
 import { applyRoleAction, assertRoleEditable, env, PrefixCommand, requirePermission, resolveMember, resolveRole } from "@neon/core";
 
 const pageSize = 5;
@@ -18,7 +19,7 @@ export const prefixGrolesCommand: PrefixCommand = {
   name: "groles",
   aliases: ["role", "cargo"],
   description: "Abre painel visual de cargos ou gerencia cargo por texto.",
-  usage: "2mg!groles | 2mg!groles add usuario/id cargo/id | 2mg!groles remove usuario/id cargo/id motivo",
+  usage: `${env.BOT_PREFIX}groles | ${env.BOT_PREFIX}groles add usuario/id cargo/id | ${env.BOT_PREFIX}groles remove usuario/id cargo/id motivo`,
 
   async execute(message: Message, args: string[]) {
     if (!message.guild || !(message.member instanceof GuildMember)) return;
@@ -78,29 +79,23 @@ export async function handleGrolesButton(interaction: ButtonInteraction) {
   }
 
   if (operation === "add" || operation === "remove") {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferUpdate();
     const role = await interaction.guild.roles.fetch(roleId);
     if (!role) {
-      await interaction.editReply("Cargo nao encontrado.");
+      await interaction.followUp({ content: "Cargo nao encontrado.", ephemeral: true });
       return;
     }
 
     const reason = operation === "add" ? `Cargo gerenciado pelo painel por ${interaction.user.tag}` : `Cargo removido pelo painel por ${interaction.user.tag}`;
-    await assertRoleEditable(interaction.member, interaction.member, role);
-    await applyRoleAction({ executor: interaction.member, target: interaction.member, roles: [role], action: operation, reason });
+    try {
+      await assertRoleEditable(interaction.member, interaction.member, role);
+      await applyRoleAction({ executor: interaction.member, target: interaction.member, roles: [role], action: operation, reason });
+    } catch (error: any) {
+      await interaction.followUp({ content: `Erro: ${error.message || "Tente novamente mais tarde."}`, ephemeral: true });
+      return;
+    }
 
-    await interaction.editReply({
-      embeds: [
-        buildRoleResultEmbed({
-          guildName: interaction.guild.name,
-          executor: interaction.member,
-          target: interaction.member,
-          role,
-          action: operation,
-          reason
-        })
-      ]
-    });
+    await interaction.editReply(buildRolePanelPayload(interaction.member, page, mode));
   }
 }
 
@@ -115,8 +110,9 @@ function buildRolePanelPayload(member: GuildMember, page: number, mode: RolePane
   const visibleRoles = roles.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
 
   return {
-    embeds: [buildRolePanelEmbed(member, visibleRoles, currentPage, maxPage, mode)],
-    components: buildRolePanelComponents(member, visibleRoles, currentPage, maxPage, mode)
+    flags: MessageFlags.IsComponentsV2 as const,
+    components: buildRolePanelComponents(member, visibleRoles, currentPage, maxPage, mode),
+    allowedMentions: { parse: [] as [] }
   };
 }
 
@@ -129,98 +125,126 @@ function getPanelRoles(member: GuildMember, mode: RolePanelMode) {
     .values()];
 
   if (mode === "mine") return base.filter((role) => member.roles.cache.has(role.id));
-  if (mode === "manageable") return base.filter((role) => role.position < botHighest);
+  if (mode === "manageable") {
+    return base.filter((role) => role.position < botHighest && canMemberUsePanelRole(member, role));
+  }
   return base;
 }
 
-function buildRolePanelEmbed(member: GuildMember, roles: Role[], page: number, maxPage: number, mode: RolePanelMode) {
+function buildRolePanelComponents(member: GuildMember, roles: Role[], page: number, maxPage: number, mode: RolePanelMode): APIMessageTopLevelComponent[] {
   const guild = member.guild;
   const modeLabel = mode === "manageable" ? "Cargos gerenciaveis" : mode === "mine" ? "Meus cargos" : "Todos os cargos";
-  const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle(`Gerenciamento de Cargos\n| ${guild.name}`)
-    .setDescription([
-      `Ola, ${member}`,
-      "Voce esta gerenciando seus proprios cargos",
-      `Modo: ${modeLabel}`,
-      roles.length ? "" : "\nNenhum cargo encontrado nesta categoria."
-    ].join("\n"))
-    .setThumbnail(guild.iconURL({ size: 256 }) ?? member.displayAvatarURL({ size: 256 }))
-    .setFooter({ text: `${page + 1}/${maxPage + 1} - ${env.BOT_PREFIX}groles add usuario/id cargo/id` });
 
-  for (const [index, role] of roles.entries()) {
-    const manageable = canBotManage(member, role);
-    const hasRole = member.roles.cache.has(role.id);
-    const permissionLabel = role.permissions.toArray().slice(0, 2).join(", ") || "Nenhuma permissao especial";
-    const actionLabel = manageable ? (hasRole ? "Remover" : "Adicionar") : "Cargo acima do bot";
+  const container = {
+    type: 17,
+    accent_color: 0x5865f2,
+    components: [
+        {
+          type: 10,
+          content: [
+            "## Gerenciamento de Cargos",
+            `### | ${guild.name}`,
+            "",
+            `Ola, ${member}`,
+            "Voce esta gerenciando seus proprios cargos",
+            `Modo: ${modeLabel}`,
+          ].join("\n"),
+        },
+        {
+          type: 14,
+          divider: true,
+          spacing: 1,
+        },
+        ...roles.map((role) => {
+          const manageable = canManagePanelRole(member, role);
+          const hasRole = member.roles.cache.has(role.id);
+          const permissionLabel = role.permissions.toArray().slice(0, 2).join(", ") || "Nenhuma permissao especial";
+          const disabledLabel = role.position >= (member.guild.members.me?.roles.highest.position ?? 0)
+            ? "Cargo acima do bot"
+            : "Sem permissao";
 
-    embed.addFields(
-      {
-        name: `**${index + 1}. @${role.name}**`,
-        value: [
-          `${role.members.size} membros`,
-          permissionLabel
-        ].join("\n"),
-        inline: true
-      },
-      {
-        name: "\u200b",
-        value: `\`${actionLabel}\``,
-        inline: true
-      },
-      {
-        name: "\u200b",
-        value: "\u200b",
-        inline: true
-      }
-    );
-  }
+          return {
+            type: 9,
+            components: [
+              {
+                type: 10,
+                content: [
+                  `### ${role}`,
+                  `${role.members.size} membros`,
+                  `\`${permissionLabel}\``,
+                ].join("\n"),
+              },
+            ],
+            accessory: {
+              type: 2,
+              custom_id: `groles:${hasRole ? "remove" : "add"}:${mode}:${page}:${role.id}`,
+              label: manageable ? (hasRole ? "Remover" : "Adicionar") : disabledLabel,
+              style: hasRole ? ButtonStyle.Danger : ButtonStyle.Primary,
+              disabled: !manageable,
+            },
+          };
+        }),
+        ...(roles.length === 0
+          ? [
+              {
+                type: 10,
+                content: "Nenhum cargo encontrado nesta categoria.",
+              },
+            ]
+          : []),
+        {
+          type: 14,
+          divider: true,
+          spacing: 1,
+        },
+        {
+          type: 1,
+          components: [
+            new ButtonBuilder()
+              .setCustomId(`groles:page:${mode}:${Math.max(page - 1, 0)}:prev`)
+              .setLabel("<")
+              .setStyle(ButtonStyle.Secondary)
+              .setDisabled(page <= 0)
+              .toJSON(),
+            new ButtonBuilder()
+              .setCustomId(`groles:page:${mode}:${page}:current`)
+              .setLabel(`${page + 1}/${maxPage + 1}`)
+              .setStyle(ButtonStyle.Secondary)
+              .setDisabled(true)
+              .toJSON(),
+            new ButtonBuilder()
+              .setCustomId(`groles:page:${mode}:${Math.min(page + 1, maxPage)}:next`)
+              .setLabel(">")
+              .setStyle(ButtonStyle.Secondary)
+              .setDisabled(page >= maxPage)
+              .toJSON(),
+          ],
+        },
+        {
+          type: 1,
+          components: [
+            new ButtonBuilder().setCustomId("groles:mode:manageable:0").setLabel("Cargos gerenciaveis").setStyle(mode === "manageable" ? ButtonStyle.Primary : ButtonStyle.Secondary).toJSON(),
+            new ButtonBuilder().setCustomId("groles:mode:all:0").setLabel("Todos os cargos").setStyle(mode === "all" ? ButtonStyle.Primary : ButtonStyle.Secondary).toJSON(),
+            new ButtonBuilder().setCustomId("groles:mode:mine:0").setLabel("Meus cargos").setStyle(mode === "mine" ? ButtonStyle.Primary : ButtonStyle.Secondary).toJSON()
+          ],
+        },
+    ],
+  };
 
-  return embed;
-}
-function buildRolePanelComponents(member: GuildMember, roles: Role[], page: number, maxPage: number, mode: RolePanelMode) {
-  const actionRow = new ActionRowBuilder<ButtonBuilder>();
-  for (const role of roles) {
-    const hasRole = member.roles.cache.has(role.id);
-    actionRow.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`groles:${hasRole ? "remove" : "add"}:${mode}:${page}:${role.id}`)
-        .setLabel(hasRole ? "Remover" : "Adicionar")
-        .setStyle(hasRole ? ButtonStyle.Danger : ButtonStyle.Secondary)
-        .setDisabled(!canBotManage(member, role))
-    );
-  }
-
-  const pageRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`groles:page:${mode}:${Math.max(page - 1, 0)}:prev`)
-      .setLabel("<")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(page <= 0),
-    new ButtonBuilder()
-      .setCustomId(`groles:page:${mode}:${page}:current`)
-      .setLabel(`${page + 1}/${maxPage + 1}`)
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(true),
-    new ButtonBuilder()
-      .setCustomId(`groles:page:${mode}:${Math.min(page + 1, maxPage)}:next`)
-      .setLabel(">")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(page >= maxPage)
-  );
-
-  const modeRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId("groles:mode:manageable:0").setLabel("Cargos gerenciaveis").setStyle(mode === "manageable" ? ButtonStyle.Primary : ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("groles:mode:all:0").setLabel("Todos os cargos").setStyle(mode === "all" ? ButtonStyle.Primary : ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("groles:mode:mine:0").setLabel("Meus cargos").setStyle(mode === "mine" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-  );
-
-  return actionRow.components.length > 0 ? [actionRow, pageRow, modeRow] : [pageRow, modeRow];
+  return [container as APIMessageTopLevelComponent];
 }
 
 function canBotManage(member: GuildMember, role: Role) {
   const botHighest = member.guild.members.me?.roles.highest.position ?? 0;
   return role.position < botHighest && !role.managed;
+}
+
+function canMemberUsePanelRole(member: GuildMember, role: Role) {
+  return member.guild.ownerId === member.id || role.position < member.roles.highest.position;
+}
+
+function canManagePanelRole(member: GuildMember, role: Role) {
+  return canBotManage(member, role) && canMemberUsePanelRole(member, role);
 }
 
 function buildRoleResultEmbed(input: {

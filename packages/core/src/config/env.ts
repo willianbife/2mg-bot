@@ -36,7 +36,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(24),
   INTERNAL_WS_SECRET: z.string().min(12),
   LOG_LEVEL: z.string().default("info"),
-  BOT_PREFIX: z.string().min(1).default("2mg!"),
+  BOT_PREFIX: z.string().min(1).default("."),
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
   NEXT_PUBLIC_BRAND_NAME: z.string().default("Neon Community")
 });

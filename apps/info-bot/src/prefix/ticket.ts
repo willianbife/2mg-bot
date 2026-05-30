@@ -1,5 +1,5 @@
 import { Message } from "discord.js";
-import { createTicket, PrefixCommand, TicketType } from "@neon/core";
+import { createTicket, env, PrefixCommand, TicketType } from "@neon/core";
 
 const aliases: Record<string, TicketType> = {
   suporte: "SUPPORT",
@@ -16,7 +16,7 @@ export const prefixTicketCommand: PrefixCommand = {
   name: "ticket",
   aliases: ["suporte"],
   description: "Abre ticket por prefixo.",
-  usage: "2mg!ticket suporte",
+  usage: `${env.BOT_PREFIX}ticket suporte`,
 
   async execute(message: Message, args: string[]) {
     if (!message.guild || !message.member) return;

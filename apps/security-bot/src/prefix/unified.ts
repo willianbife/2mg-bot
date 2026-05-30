@@ -3,7 +3,6 @@ import {
   AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
-  ChannelType,
   GuildMember,
   Message,
   StringSelectMenuBuilder
@@ -19,15 +18,14 @@ import {
   logCategories,
   panelEmbed,
   notificationEmbed,
-  statsEmbed,
   PrefixCommand,
   requirePermission,
   sendSecurityLog,
   unlockGuild,
   updateSecurityConfig,
-  upsertDiscordUser,
-  getCurrentTheme
+  upsertDiscordUser
 } from "@neon/core";
+import { buildRoleHistoryEmbed } from "../../../moderation-bot/src/commands/role-history.js";
 
 function usage(command: string) {
   return `${env.BOT_PREFIX}${command}`;
@@ -98,7 +96,6 @@ export const prefixRoleHistoryCommand: PrefixCommand = {
     if (!message.guild) return;
     const targetId = extractDiscordId(args[0] ?? "");
     const page = Math.max(Number(args[1] ?? 1), 1);
-    const { theme } = getCurrentTheme();
     if (!targetId) {
       await message.reply(`Uso correto: \`${this.usage}\``);
       return;
@@ -111,35 +108,36 @@ export const prefixRoleHistoryCommand: PrefixCommand = {
       create: { discordId: message.guild.id, name: message.guild.name, iconUrl: message.guild.iconURL() }
     });
     const dbUser = await upsertDiscordUser(user);
-    const entries = await prisma.roleHistory.findMany({
-      where: { guildId: guild.id, targetId: dbUser.id },
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * 8,
-      take: 8
-    });
-
-    const description =
-      entries
-        .map((entry) => `${theme.separators.bullet} **${entry.action.toUpperCase()}:** ${entry.roleName}\n${theme.separators.sub} Executor: <@${entry.executorId}>\n${theme.separators.sub} Data: <t:${Math.floor(entry.createdAt.getTime() / 1000)}:f>\n${theme.separators.sub} Motivo: ${entry.reason}`)
-        .join("\n\n") || "Sem registros nesta página.";
+    const pageSize = 8;
+    const [entries, total] = await Promise.all([
+      prisma.roleHistory.findMany({
+        where: { guildId: guild.id, targetId: dbUser.id },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize
+      }),
+      prisma.roleHistory.count({ where: { guildId: guild.id, targetId: dbUser.id } })
+    ]);
         
     await message.reply({
       embeds: [
-        statsEmbed({
-          type: "role_history",
+        buildRoleHistoryEmbed({
           userId: user.id,
-          data: { "Total": entries.length, "Página": page }
-        }).setDescription(`\n${description}`)
+          entries,
+          total,
+          page,
+          pageSize
+        })
       ]
     });
   }
 };
 
 export const prefixVoiceStatsCommand: PrefixCommand = {
-  name: "voice-stats",
-  aliases: ["voicestats", "callstats"],
+  name: "tempo",
+  aliases: ["voice-stats", "voicestats", "callstats"],
   description: "Mostra estatísticas de call.",
-  usage: usage("voice-stats [@usuario]"),
+  usage: usage("tempo [@usuario]"),
 
   async execute(message: Message, args: string[]) {
     if (!message.guild) return;
@@ -171,7 +169,7 @@ export const prefixVoiceStatsCommand: PrefixCommand = {
       mutedSeconds: stat.mutedSeconds,
       badges: ["call", "meta", "premium"]
     });
-    await message.reply({ files: [new AttachmentBuilder(buffer, { name: "voice-stats.png" })] });
+    await message.reply({ files: [new AttachmentBuilder(buffer, { name: "tempo.png" })] });
   }
 };
 

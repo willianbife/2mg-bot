@@ -1,6 +1,6 @@
 import { ButtonInteraction, Events, Interaction } from "discord.js";
 import { CommandManager, createBotClient, env, handleVoiceState, PrefixCommandManager } from "@neon/core";
-import { grolesCommand } from "./commands/groles.js";
+import { grolesCommand, handleRoleManagementButton } from "./commands/groles.js";
 import { roleHistoryCommand } from "./commands/role-history.js";
 import { voiceStatsCommand } from "./commands/voice-stats.js";
 import { handleGrolesButton, prefixGrolesCommand } from "./prefix/groles.js";
@@ -19,6 +19,10 @@ prefixCommands.register(createModerationHelpCommand(prefixCommands));
 commands.bind(client);
 prefixCommands.bind(client);
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
+  if (interaction instanceof ButtonInteraction && await handleRoleManagementButton(interaction)) {
+    return;
+  }
+
   if (interaction instanceof ButtonInteraction && interaction.customId.startsWith("groles:")) {
     await handleGrolesButton(interaction);
   }

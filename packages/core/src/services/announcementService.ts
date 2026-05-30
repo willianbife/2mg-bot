@@ -1,5 +1,4 @@
 import { TextChannel, EmbedBuilder, Client } from "discord.js";
-import { prisma } from "@neon/database";
 import { childLogger } from "../logger/logger.js";
 
 const log = childLogger("announcement-service");
@@ -7,7 +6,7 @@ const log = childLogger("announcement-service");
 export class AnnouncementService {
   private intervals = new Map<string, NodeJS.Timeout>();
 
-  async startAnnouncements(client: Client) {
+  async startAnnouncements(_client: Client) {
     // Buscar todos os anúncios ativos no banco (ou Guild.config)
     // Por agora, vamos implementar a lógica de envio
   }
