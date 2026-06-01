@@ -4,7 +4,11 @@ import { getCurrentTheme } from "../theme.js";
 
 export const StatsEmbedSchema = z.object({
   type: z.enum(['voice_stats', 'role_history', 'user_stats']),
-  data: z.record(z.union([z.string(), z.number()])),
+  fields: z.array(z.object({
+    label: z.string(),
+    value: z.string(),
+    inline: z.boolean().optional().default(true),
+  })),
   userId: z.string().optional(),
   period: z.string().optional()
 });
@@ -24,20 +28,20 @@ export function statsEmbed(options: StatsEmbedOptions): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(theme.colors.primary)
     .setTitle(`${theme.separators.main} ${titleMap[validated.type]}`)
-    .setFooter({ text: `2mg » ${theme.footer}` })
+    .setFooter({ text: `2mg » Community Suite` })
     .setTimestamp();
 
   if (validated.userId) {
-    embed.setDescription(`${theme.separators.sub} **Usuário:** <@${validated.userId}>${validated.period ? `\n${theme.separators.sub} **Período:** ${validated.period}` : ''}`);
+    const descParts = [`${theme.separators.sub} **Usuário:** <@${validated.userId}>`];
+    if (validated.period) descParts.push(`${theme.separators.sub} **Período:** ${validated.period}`);
+    embed.setDescription(descParts.join('\n'));
   }
 
-  const fields = Object.entries(validated.data).map(([key, value]) => ({
-    name: `${theme.separators.bullet} ${key}`,
-    value: String(value),
-    inline: true
-  }));
-
-  embed.addFields(fields);
+  embed.addFields(validated.fields.map(f => ({
+    name: f.label,
+    value: f.value,
+    inline: f.inline ?? true,
+  })));
 
   return embed;
 }

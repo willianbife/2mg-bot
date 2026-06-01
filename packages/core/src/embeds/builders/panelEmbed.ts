@@ -30,11 +30,11 @@ export function panelEmbed(options: PanelEmbedOptions): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(colorMap[validated.type])
     .setTitle(`${theme.separators.main} ${validated.title}`)
-    .setFooter({ text: `2mg » ${theme.footer}` })
+    .setFooter({ text: `2mg » Community Suite` })
     .setTimestamp();
 
   if (validated.description) {
-    embed.setDescription(`\n${validated.description}\n\n${theme.separators.divider.repeat(20)}`);
+    embed.setDescription(validated.description);
   }
 
   if (validated.fields) {

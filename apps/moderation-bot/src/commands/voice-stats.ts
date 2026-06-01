@@ -12,8 +12,16 @@ export const voiceStatsCommand = {
     if (!interaction.guild) return;
     await interaction.deferReply();
     const user = interaction.options.getUser("usuario") ?? interaction.user;
-    const guild = await prisma.guild.findUnique({ where: { discordId: interaction.guild.id } });
-    const dbUser = await prisma.user.findUnique({ where: { discordId: user.id } });
+    const guild = await prisma.guild.upsert({
+      where: { discordId: interaction.guild.id },
+      update: { name: interaction.guild.name },
+      create: { discordId: interaction.guild.id, name: interaction.guild.name, iconUrl: interaction.guild.iconURL() }
+    });
+    const dbUser = await prisma.user.upsert({
+      where: { discordId: user.id },
+      update: { username: user.username },
+      create: { discordId: user.id, username: user.username, avatarUrl: user.displayAvatarURL() }
+    });
     const stat = guild && dbUser
       ? await prisma.voiceStat.findFirst({ where: { guildId: guild.id, userId: dbUser.id }, orderBy: { updatedAt: "desc" } })
       : null;

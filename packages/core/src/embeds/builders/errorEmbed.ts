@@ -17,13 +17,13 @@ export function errorEmbed(options: ErrorEmbedOptions): EmbedBuilder {
   
   const embed = new EmbedBuilder()
     .setColor(theme.colors.danger)
-    .setTitle(`${theme.separators.main} Erro: ${validated.code}`)
-    .setDescription(`\n${validated.message}`)
-    .setFooter({ text: `2mg » ${theme.footer}` })
+    .setTitle(`${theme.separators.main} Ocorreu um erro`)
+    .setDescription(validated.message)
+    .setFooter({ text: `2mg » Community Suite  •  Código: ${validated.code}` })
     .setTimestamp(validated.timestamp || new Date());
 
   if (validated.suggestion) {
-    embed.addFields({ name: `${theme.separators.bullet} Sugestão`, value: validated.suggestion });
+    embed.addFields({ name: 'O que fazer', value: validated.suggestion, inline: false });
   }
 
   return embed;

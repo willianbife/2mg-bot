@@ -39,17 +39,21 @@ export function auditEmbed(options: AuditEmbedOptions): EmbedBuilder {
 
   const embed = new EmbedBuilder()
     .setColor(colorMap[validated.action])
-    .setTitle(`${theme.separators.main} Auditoria: ${actionLabels[validated.action]}`)
-    .setDescription(`\n${theme.separators.sub} **Alvo:** ${validated.target}\n${theme.separators.sub} **Moderador:** ${validated.moderator}`)
-    .setFooter({ text: `2mg » ${theme.footer}` })
+    .setTitle(`${theme.separators.main} Auditoria — ${actionLabels[validated.action]}`)
+    .setFooter({ text: `2mg » Community Suite` })
     .setTimestamp(validated.timestamp);
 
+  embed.addFields(
+    { name: 'Alvo', value: validated.target, inline: true },
+    { name: 'Moderador', value: validated.moderator, inline: true },
+  );
+
   if (validated.reason) {
-    embed.addFields({ name: `${theme.separators.bullet} Motivo`, value: validated.reason });
+    embed.addFields({ name: 'Motivo', value: validated.reason, inline: false });
   }
 
   if (validated.duration) {
-    embed.addFields({ name: `${theme.separators.bullet} Duração`, value: validated.duration, inline: true });
+    embed.addFields({ name: 'Duração', value: validated.duration, inline: true });
   }
 
   return embed;

@@ -33,7 +33,7 @@ export function premiumEmbed(options: PremiumEmbedOptions): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(colorMap[variant])
     .setTitle(validated.title)
-    .setFooter({ text: validated.footer ?? `2mg - ${theme.footer}` })
+    .setFooter({ text: validated.footer ?? `2mg » Community Suite` })
     .setTimestamp(validated.timestamp ?? new Date());
 
   if (validated.description) {

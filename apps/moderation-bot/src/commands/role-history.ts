@@ -1,6 +1,6 @@
 import { ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from "discord.js";
 import { prisma } from "@neon/database";
-import { upsertDiscordUser } from "@neon/core";
+import { upsertDiscordUser, getCurrentTheme } from "@neon/core";
 
 const pageSize = 8;
 
@@ -39,7 +39,13 @@ export const roleHistoryCommand = {
       embeds: [
         buildRoleHistoryEmbed({
           userId: user.id,
-          entries,
+          entries: entries.map(e => ({
+            action: e.action,
+            roleName: e.roleName,
+            executorId: e.executorId,
+            reason: e.reason,
+            createdAt: e.createdAt
+          })),
           total,
           page,
           pageSize
@@ -65,36 +71,38 @@ export function buildRoleHistoryEmbed(input: {
   pageSize: number;
 }) {
   const maxPage = Math.max(Math.ceil(input.total / input.pageSize), 1);
-  const lines = input.entries.length
-    ? input.entries.map((entry, index) => formatEntry(entry, (input.page - 1) * input.pageSize + index + 1)).join("\n\n")
-    : "Nenhum registro encontrado nesta pagina.";
+  const { theme } = getCurrentTheme();
 
-  return new EmbedBuilder()
-    .setColor(0x2f80ed)
-    .setTitle("Historico de Cargos")
-    .setDescription([
-      `Usuario: <@${input.userId}>`,
-      "",
-      lines
-    ].join("\n"))
-    .addFields(
-      { name: "Total", value: String(input.total), inline: true },
-      { name: "Pagina", value: `${input.page}/${maxPage}`, inline: true },
-      { name: "Nesta pagina", value: String(input.entries.length), inline: true }
-    )
-    .setFooter({ text: "2mg Community Suite" })
+  const embed = new EmbedBuilder()
+    .setColor(theme.colors.primary)
+    .setTitle(`${theme.separators.main} Histórico de Cargos`)
+    .setDescription(`${theme.separators.sub} **Usuário:** <@${input.userId}>`)
+    .setFooter({ text: `2mg » Community Suite  •  Pág. ${input.page}/${maxPage}  •  Total: ${input.total}` })
     .setTimestamp();
+
+  if (!input.entries.length) {
+    embed.addFields({ name: "Sem registros", value: "Nenhuma alteração de cargo encontrada nesta página." });
+    return embed;
+  }
+
+  for (const [i, entry] of input.entries.entries()) {
+    const index = (input.page - 1) * input.pageSize + i + 1;
+    const isAdd = entry.action.toLowerCase() === "add";
+    const actionLabel = isAdd ? "▲ ADD" : "▼ REMOVE";
+    const stamp = `<t:${Math.floor(entry.createdAt.getTime() / 1000)}:f>`;
+    const relative = `<t:${Math.floor(entry.createdAt.getTime() / 1000)}:R>`;
+
+    embed.addFields({
+      name: `${index}. ${actionLabel}  —  ${entry.roleName}`,
+      value: [
+        `${theme.separators.sub} Executor: <@${entry.executorId}>`,
+        `${theme.separators.sub} Data: ${stamp} (${relative})`,
+        `${theme.separators.sub} Motivo: ${entry.reason || "Não informado"}`,
+      ].join("\n"),
+      inline: false,
+    });
+  }
+
+  return embed;
 }
 
-function formatEntry(entry: RoleHistoryEntry, index: number) {
-  const action = entry.action.toUpperCase();
-  const stamp = `<t:${Math.floor(entry.createdAt.getTime() / 1000)}:f>`;
-  const relative = `<t:${Math.floor(entry.createdAt.getTime() / 1000)}:R>`;
-
-  return [
-    `**${index}. ${action}** - ${entry.roleName}`,
-    `Executor: <@${entry.executorId}>`,
-    `Data: ${stamp} (${relative})`,
-    `Motivo: ${entry.reason || "Nao informado"}`
-  ].join("\n");
-}

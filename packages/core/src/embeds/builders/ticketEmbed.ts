@@ -25,22 +25,33 @@ export function ticketEmbed(options: TicketEmbedOptions): EmbedBuilder {
     closed: theme.colors.danger,
   };
 
+  const statusLabel: Record<TicketEmbedOptions['status'], string> = {
+    opened: 'Aberto',
+    pending: 'Pendente',
+    resolved: 'Resolvido',
+    closed: 'Fechado',
+  };
+
   const embed = new EmbedBuilder()
     .setColor(colorMap[validated.status])
-    .setTitle(`${theme.separators.main} Ticket: ${validated.title}`)
-    .setDescription(`\n${theme.separators.sub} **ID:** \`${validated.ticketId}\`\n${theme.separators.sub} **Usuário:** <@${validated.userId}>`)
-    .setFooter({ text: `2mg » ${theme.footer}` })
+    .setTitle(`${theme.separators.main} Ticket — ${validated.title}`)
+    .setFooter({ text: `2mg » Community Suite` })
     .setTimestamp(validated.timestamp);
 
+  embed.addFields(
+    { name: 'ID', value: `\`${validated.ticketId}\``, inline: true },
+    { name: 'Usuário', value: `<@${validated.userId}>`, inline: true },
+    { name: 'Status', value: statusLabel[validated.status], inline: true },
+  );
+
   if (validated.reason) {
-    embed.addFields({ name: `${theme.separators.bullet} Motivo`, value: validated.reason });
+    embed.addFields({ name: 'Motivo', value: validated.reason, inline: false });
   }
 
   if (validated.metadata) {
-    const metaStr = Object.entries(validated.metadata)
-      .map(([key, value]) => `${theme.separators.bullet} **${key}:** ${value}`)
-      .join('\n');
-    embed.addFields({ name: `${theme.separators.bullet} Informações Adicionais`, value: metaStr });
+    for (const [key, value] of Object.entries(validated.metadata)) {
+      embed.addFields({ name: key, value: String(value), inline: true });
+    }
   }
 
   return embed;

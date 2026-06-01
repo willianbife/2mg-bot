@@ -24,10 +24,19 @@ export function notificationEmbed(options: NotificationEmbedOptions): EmbedBuild
     neutral: theme.colors.neutral,
   };
 
+  const iconMap: Record<NotificationEmbedOptions['type'], string> = {
+    success: '▸ Sucesso',
+    info: '▸ Informação',
+    warning: '▸ Atenção',
+    pending: '▸ Pendente',
+    danger: '▸ Erro',
+    neutral: '▸ Aviso',
+  };
+
   return new EmbedBuilder()
     .setColor(colorMap[validated.type])
-    .setTitle(`${theme.separators.main} ${validated.title}`)
-    .setDescription(`\n${validated.message}`)
-    .setFooter({ text: `2mg » ${theme.footer}` })
+    .setTitle(`${iconMap[validated.type]} — ${validated.title}`)
+    .setDescription(validated.message)
+    .setFooter({ text: `2mg » Community Suite` })
     .setTimestamp(validated.timestamp || new Date());
 }

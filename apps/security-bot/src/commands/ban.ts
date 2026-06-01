@@ -24,15 +24,33 @@ export const banCommand = {
       return;
     }
 
-    await interaction.guild.members.ban(targetId, { reason, deleteMessageSeconds });
-    await interaction.editReply({
-      embeds: [
-        notificationEmbed({
-          type: "success",
-          title: "Usuário Banido",
-          message: `O usuário <@${targetId}> (\`${targetId}\`) foi banido com sucesso.\n**Motivo:** ${reason}`
-        })
-      ]
-    });
+    try {
+      await interaction.guild.members.ban(targetId, { reason, deleteMessageSeconds });
+      await interaction.editReply({
+        embeds: [
+          notificationEmbed({
+            type: "success",
+            title: "Usuário Banido",
+            message: `O usuário <@${targetId}> (\`${targetId}\`) foi banido com sucesso.\n**Motivo:** ${reason}`
+          })
+        ]
+      });
+    } catch (err: any) {
+      const msg = err?.code === 50013
+        ? "Sem permissão para banir este usuário."
+        : err?.code === 10013
+        ? "Usuário não encontrado."
+        : `Falha ao executar ban: ${err?.message ?? "erro desconhecido"}`;
+
+      await interaction.editReply({
+        embeds: [
+          notificationEmbed({
+            type: "danger",
+            title: "Erro ao banir",
+            message: msg
+          })
+        ]
+      });
+    }
   }
 };
