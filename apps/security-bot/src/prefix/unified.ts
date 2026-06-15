@@ -137,7 +137,7 @@ export const prefixRoleHistoryCommand: PrefixCommand = {
 
 export const prefixVoiceStatsCommand: PrefixCommand = {
   name: "tempo",
-  aliases: ["tempocall", "voice-stats", "voicestats", "callstats"],
+  aliases: ["voice-stats", "voicestats", "callstats"],
   description: "Mostra estatísticas de call.",
   usage: usage("tempo [@usuario]"),
 
