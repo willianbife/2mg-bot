@@ -1,6 +1,11 @@
-import { AttachmentBuilder, ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import { prisma } from "@neon/database";
-import { generateStatsCard, premiumEmbed } from "@neon/core";
+import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
+import {
+  formatDuration,
+  getUserTimeStats,
+  premiumEmbed,
+  timeStatsEmbedBuilder,
+  type TimeStatsData
+} from "@neon/core";
 
 export const voiceStatsCommand = {
   data: new SlashCommandBuilder()
@@ -12,35 +17,36 @@ export const voiceStatsCommand = {
     if (!interaction.guild) return;
     await interaction.deferReply();
     const user = interaction.options.getUser("usuario") ?? interaction.user;
-    const guild = await prisma.guild.upsert({
-      where: { discordId: interaction.guild.id },
-      update: { name: interaction.guild.name },
-      create: { discordId: interaction.guild.id, name: interaction.guild.name, iconUrl: interaction.guild.iconURL() }
-    });
-    const dbUser = await prisma.user.upsert({
-      where: { discordId: user.id },
-      update: { username: user.username },
-      create: { discordId: user.id, username: user.username, avatarUrl: user.displayAvatarURL() }
-    });
-    const stat = guild && dbUser
-      ? await prisma.voiceStat.findFirst({ where: { guildId: guild.id, userId: dbUser.id }, orderBy: { updatedAt: "desc" } })
-      : null;
+    const stats = await getUserTimeStats(interaction.guild.id, user.id);
 
-    if (!stat) {
+    if (!stats) {
       await interaction.editReply({ embeds: [premiumEmbed({ title: "Sem dados de call", description: "Ainda nao ha atividade registrada para este usuario." })] });
       return;
     }
 
-    const buffer = await generateStatsCard({
+    const data: TimeStatsData = {
+      userId: user.id,
       username: user.username,
-      avatarUrl: user.displayAvatarURL({ extension: "png", size: 256 }),
-      totalSeconds: stat.totalSeconds,
-      currentWeekSeconds: stat.weeklySeconds,
-      previousWeekSeconds: 0,
-      mutedSeconds: stat.mutedSeconds,
-      badges: ["call", "meta", "premium"]
-    });
-    const attachment = new AttachmentBuilder(buffer, { name: "tempo.png" });
-    await interaction.editReply({ files: [attachment] });
+      globalName: user.globalName || user.username,
+      userTag: user.username,
+      avatarURL: user.displayAvatarURL({ size: 256, extension: "png" }),
+      rank: stats.rank,
+      totalTime: formatDuration(stats.totalSeconds),
+      currentWeek: {
+        period: stats.currentWeek.key,
+        accumulated: formatDuration(stats.currentWeek.total),
+        callTime: formatDuration(stats.currentWeek.active),
+        mutedTime: formatDuration(stats.currentWeek.muted)
+      },
+      previousWeek: {
+        period: stats.previousWeek.key,
+        callTime: formatDuration(stats.previousWeek.active),
+        mutedTime: formatDuration(stats.previousWeek.muted)
+      },
+      serverName: interaction.guild.name,
+      guildId: interaction.guild.id
+    };
+
+    await interaction.editReply(await timeStatsEmbedBuilder(data));
   }
 };

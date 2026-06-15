@@ -1,6 +1,5 @@
 import {
   ActionRowBuilder,
-  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
   GuildMember,
@@ -12,7 +11,8 @@ import {
   createBlacklist,
   env,
   extractDiscordId,
-  generateStatsCard,
+  formatDuration,
+  getUserTimeStats,
   getSecurityConfig,
   lockGuild,
   logCategories,
@@ -21,9 +21,11 @@ import {
   PrefixCommand,
   requirePermission,
   sendSecurityLog,
+  timeStatsEmbedBuilder,
   unlockGuild,
   updateSecurityConfig,
-  upsertDiscordUser
+  upsertDiscordUser,
+  type TimeStatsData
 } from "@neon/core";
 import { buildRoleHistoryEmbed } from "../../../moderation-bot/src/commands/role-history.js";
 
@@ -135,7 +137,7 @@ export const prefixRoleHistoryCommand: PrefixCommand = {
 
 export const prefixVoiceStatsCommand: PrefixCommand = {
   name: "tempo",
-  aliases: ["voice-stats", "voicestats", "callstats"],
+  aliases: ["tempocall", "voice-stats", "voicestats", "callstats"],
   description: "Mostra estatísticas de call.",
   usage: usage("tempo [@usuario]"),
 
@@ -143,11 +145,9 @@ export const prefixVoiceStatsCommand: PrefixCommand = {
     if (!message.guild) return;
     const targetId = extractDiscordId(args[0] ?? "") ?? message.author.id;
     const user = await message.client.users.fetch(targetId);
-    const guild = await prisma.guild.findUnique({ where: { discordId: message.guild.id } });
-    const dbUser = await prisma.user.findUnique({ where: { discordId: user.id } });
-    const stat = guild && dbUser ? await prisma.voiceStat.findFirst({ where: { guildId: guild.id, userId: dbUser.id }, orderBy: { updatedAt: "desc" } }) : null;
+    const stats = await getUserTimeStats(message.guild.id, user.id);
 
-    if (!stat) {
+    if (!stats) {
       await message.reply({
         embeds: [
           notificationEmbed({
@@ -160,16 +160,30 @@ export const prefixVoiceStatsCommand: PrefixCommand = {
       return;
     }
 
-    const buffer = await generateStatsCard({
+    const timeStatsData: TimeStatsData = {
+      userId: user.id,
       username: user.username,
-      avatarUrl: user.displayAvatarURL({ extension: "png", size: 256 }),
-      totalSeconds: stat.totalSeconds,
-      currentWeekSeconds: stat.weeklySeconds,
-      previousWeekSeconds: 0,
-      mutedSeconds: stat.mutedSeconds,
-      badges: ["call", "meta", "premium"]
-    });
-    await message.reply({ files: [new AttachmentBuilder(buffer, { name: "tempo.png" })] });
+      globalName: user.globalName || user.username,
+      userTag: user.username,
+      avatarURL: user.displayAvatarURL({ size: 256, extension: "png" }),
+      rank: stats.rank,
+      totalTime: formatDuration(stats.totalSeconds),
+      currentWeek: {
+        period: stats.currentWeek.key,
+        accumulated: formatDuration(stats.currentWeek.total),
+        callTime: formatDuration(stats.currentWeek.active),
+        mutedTime: formatDuration(stats.currentWeek.muted)
+      },
+      previousWeek: {
+        period: stats.previousWeek.key,
+        callTime: formatDuration(stats.previousWeek.active),
+        mutedTime: formatDuration(stats.previousWeek.muted)
+      },
+      serverName: message.guild.name,
+      guildId: message.guild.id
+    };
+
+    await message.reply(await timeStatsEmbedBuilder(timeStatsData));
   }
 };
 
